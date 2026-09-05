@@ -1,6 +1,3 @@
---- fixed
-
-
 getgenv().GG = getgenv().GG or {}
 GG.SelectedLanguage = GG.SelectedLanguage or "en"
 local SelectedLanguage = GG.SelectedLanguage
@@ -909,12 +906,9 @@ function Library:get_screen_scale()
     end
     self._viewport_size = viewport_size
     if self._is_mobile then
-        local screen_scale = (viewport_size.X / 1400) * 1.4375
-        self._ui_scale = math.clamp(
-            math.min(screen_scale, (viewport_size.X * 0.95) / 698, (viewport_size.Y * 0.95) / 479),
-            0.45,
-            1.25
-        )
+        local width_scale = (viewport_size.X * 0.92) / 698
+        local height_scale = (viewport_size.Y * 0.90) / 479
+        self._ui_scale = math.clamp(math.min(width_scale, height_scale), 0.60, 1.25)
     else
         local width_scale = (viewport_size.X - 20) / 698
         local height_scale = (viewport_size.Y - 20) / 479
@@ -1764,14 +1758,14 @@ function Library:create_ui()
     ClientName.TextTransparency = 0.15
     ClientName.Text = 'PRIVOT'
     ClientName.Name = 'ClientName'
-    ClientName.Size = UDim2.new(0, 52, 0, 13)
+    ClientName.Size = UDim2.new(0, 70, 0, 16)
     ClientName.AnchorPoint = Vector2.new(0, 0.5)
-    ClientName.Position = UDim2.new(0, 40, 0.055, 0)
+    ClientName.Position = UDim2.new(0, 46, 0.055, 0)
     ClientName.BackgroundTransparency = 1
     ClientName.TextXAlignment = Enum.TextXAlignment.Left
     ClientName.BorderSizePixel = 0
     ClientName.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    ClientName.TextSize = 13
+    ClientName.TextSize = 14
     ClientName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     ClientName.Parent = Handler
     local UIGradient = Instance.new('UIGradient')
@@ -1800,7 +1794,7 @@ function Library:create_ui()
     Icon.BackgroundTransparency = 1
     Icon.Position = UDim2.new(0, 16, 0.055, 0)
     Icon.Name = 'Icon'
-    Icon.Size = UDim2.new(0, 18, 0, 18)
+    Icon.Size = UDim2.new(0, 24, 0, 24)
     Icon.BorderSizePixel = 0
     Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     Icon.Parent = Handler
@@ -2409,11 +2403,12 @@ function Library:create_ui()
         TextLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
         TextLabel.TextTransparency = 0.65 
         TextLabel.Text = title
-        TextLabel.Size = UDim2.new(0, font_size.X, 0, 16)
+        TextLabel.Size = UDim2.new(1, -44, 0, 16)
         TextLabel.AnchorPoint = Vector2.new(0, 0.5)
-        TextLabel.Position = UDim2.new(0.2400001734495163, 0, 0.5, 0)
+        TextLabel.Position = UDim2.new(0, 38, 0.5, 0)
         TextLabel.BackgroundTransparency = 1
         TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TextLabel.TextTruncate = Enum.TextTruncate.AtEnd
         TextLabel.BorderSizePixel = 0
         TextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
         TextLabel.TextSize = 13
@@ -2432,10 +2427,10 @@ function Library:create_ui()
         Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
         Icon.AnchorPoint = Vector2.new(0, 0.5)
         Icon.BackgroundTransparency = 1
-        Icon.Position = UDim2.new(0.10000000149011612, 0, 0.5, 0)
+        Icon.Position = UDim2.new(0, 12, 0.5, 0)
         Icon.Name = 'Icon'
         Icon.Image = icon
-        Icon.Size = UDim2.new(0, 12, 0, 12)
+        Icon.Size = UDim2.new(0, 18, 0, 18)
         Icon.BorderSizePixel = 0
         Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         Icon.Parent = Tab
@@ -2542,6 +2537,8 @@ function Library:create_ui()
                 _size = 0,
                 _multiplier = 0
             }
+            self._all_modules = self._all_modules or {}
+            table.insert(self._all_modules, ModuleManager)
             local module_persistent = settings.persist ~= false
             local module_exportable = settings.export
             if module_exportable == nil then
@@ -2600,16 +2597,16 @@ function Library:create_ui()
                 }):Play()
             end)
             local Icon = Instance.new('ImageLabel')
-            Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
+            Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
             Icon.ScaleType = Enum.ScaleType.Fit
-            Icon.ImageTransparency = 0.4
+            Icon.ImageTransparency = 0.2
             Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
             Icon.AnchorPoint = Vector2.new(0, 0.5)
             Icon.Image = 'rbxassetid://86490552961317'
             Icon.BackgroundTransparency = 1
             Icon.Position = UDim2.new(0, 16, 0, 74)
             Icon.Name = 'Icon'
-            Icon.Size = UDim2.new(0, 15, 0, 15)
+            Icon.Size = UDim2.new(0, 20, 0, 20)
             Icon.BorderSizePixel = 0
             Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             Icon.Parent = Header
@@ -2709,22 +2706,27 @@ function Library:create_ui()
             UIListLayout.Parent = Options
             local function get_expanded_height(extra_delta: number?)
                 local list_layout = Options:FindFirstChildWhichIsA("UIListLayout")
-                local content_h = 0
-                if list_layout and list_layout.AbsoluteContentSize.Y > 0 then
-                    content_h = list_layout.AbsoluteContentSize.Y + 16
-                else
-                    local sum = 16
-                    for _, child in ipairs(Options:GetChildren()) do
-                        if child:IsA("GuiObject") and child.Visible and child.Name ~= "UIPadding" then
-                            sum += child.Size.Y.Offset + 8
+                local layout_content_h = (list_layout and list_layout.AbsoluteContentSize.Y > 0) and (list_layout.AbsoluteContentSize.Y + 16) or 0
+                local fallback_h = 16
+                local visible_count = 0
+                for _, child in ipairs(Options:GetChildren()) do
+                    if child:IsA("GuiObject") and child.Visible and child.Name ~= "UIPadding" then
+                        local child_h = child.AbsoluteSize.Y > 0 and child.AbsoluteSize.Y or child.Size.Y.Offset
+                        if child_h <= 0 then
+                            child_h = 24
                         end
+                        fallback_h += child_h + 8
+                        visible_count += 1
                     end
-                    content_h = math.max(16, sum - 8)
                 end
+                if visible_count > 0 then
+                    fallback_h -= 8
+                end
+                local content_h = math.max(layout_content_h, fallback_h)
                 if extra_delta then
                     content_h = math.max(16, content_h + extra_delta)
                 end
-                return 93 + content_h
+                return 93 + content_h + 6
             end
             local function sync_module_size(animate)
                 if not ModuleManager._state then
@@ -2741,6 +2743,21 @@ function Library:create_ui()
                     end
                 end
             end
+            ModuleManager.sync_size = sync_module_size
+            Options.ChildAdded:Connect(function()
+                task.defer(function()
+                    if ModuleManager._state then
+                        sync_module_size(false)
+                    end
+                end)
+            end)
+            Options.ChildRemoved:Connect(function()
+                task.defer(function()
+                    if ModuleManager._state then
+                        sync_module_size(false)
+                    end
+                end)
+            end)
             local options_layout = Options:FindFirstChildWhichIsA("UIListLayout")
             if options_layout then
                 options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -2831,9 +2848,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += settings.customScale or 70
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local Paragraph = Instance.new('Frame')
                 Paragraph.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
                 Paragraph.BackgroundTransparency = 0
@@ -2901,6 +2915,9 @@ function Library:create_ui()
                         Color = Color3.fromRGB(42, 42, 42)
                     }):Play()
                 end)
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return ParagraphManager
             end
             function ModuleManager:create_text(settings: any)
@@ -2910,9 +2927,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += settings.customScale or 50 
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local TextFrame = Instance.new('Frame')
                 TextFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
                 TextFrame.BackgroundTransparency = 0
@@ -2978,6 +2992,9 @@ function Library:create_ui()
                         Body.Text = new_settings.richtext or "<font color='rgb(255,255,255)'>Privot</font> user" 
                     end
                 end;
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return TextManager
             end
             function ModuleManager:create_textbox(settings: any)
@@ -2997,9 +3014,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += 48
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local Label = Instance.new('TextLabel')
                 Label.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Medium, Enum.FontStyle.Normal)
                 Label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -3102,6 +3116,9 @@ function Library:create_ui()
                         end
                     end)
                 end
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return TextboxManager
             end   
             local function begin_component_keybind_capture(flag: any, update_display: any)
@@ -3186,9 +3203,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += 24
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local Checkbox = Instance.new("TextButton")
                 Checkbox.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
                 Checkbox.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -3220,7 +3234,7 @@ function Library:create_ui()
                 TitleLabel.Parent = Checkbox
                 local KeybindBox = Instance.new("Frame")
                 KeybindBox.Name = "KeybindBox"
-                KeybindBox.Size = UDim2.fromOffset(22, 18)
+                KeybindBox.Size = UDim2.fromOffset(24, 20)
                 KeybindBox.Position = UDim2.new(1, -36, 0.5, 0)
                 KeybindBox.AnchorPoint = Vector2.new(1, 0.5)
                 KeybindBox.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
@@ -3240,9 +3254,9 @@ function Library:create_ui()
                 KeybindIcon.BackgroundTransparency = 1
                 KeybindIcon.AnchorPoint = Vector2.new(0.5, 0.5)
                 KeybindIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-                KeybindIcon.Size = UDim2.new(0, 12, 0, 12)
+                KeybindIcon.Size = UDim2.new(0, 14, 0, 14)
                 KeybindIcon.Image = "rbxassetid://10709818996"
-                KeybindIcon.ImageColor3 = Color3.fromRGB(160, 160, 160)
+                KeybindIcon.ImageColor3 = Color3.fromRGB(180, 180, 180)
                 KeybindIcon.ScaleType = Enum.ScaleType.Fit
                 KeybindIcon.ZIndex = 2
                 KeybindIcon.Parent = KeybindBox
@@ -3297,14 +3311,14 @@ function Library:create_ui()
                         return TextService:GetTextBoundsAsync(font_params)
                     end)
                     local width = success and font_size.X or (#label_text * 6)
-                    KeybindBox.Size = UDim2.fromOffset(math.clamp(width + 10, 22, 75), 18)
+                    KeybindBox.Size = UDim2.fromOffset(math.clamp(width + 12, 24, 80), 20)
                 end
                 local function update_keybind_display(key_name, is_picking)
                     if is_picking then
                         KeybindIcon.Visible = false
                         KeybindLabel.Visible = true
                         KeybindLabel.Text = "..."
-                        KeybindBox.Size = UDim2.fromOffset(22, 18)
+                        KeybindBox.Size = UDim2.fromOffset(24, 20)
                     elseif key_name and key_name ~= "Unknown" and key_name ~= "" and key_name ~= "None" then
                         KeybindIcon.Visible = false
                         KeybindLabel.Visible = true
@@ -3314,7 +3328,7 @@ function Library:create_ui()
                         KeybindIcon.Visible = true
                         KeybindLabel.Visible = false
                         KeybindLabel.Text = ""
-                        KeybindBox.Size = UDim2.fromOffset(22, 18)
+                        KeybindBox.Size = UDim2.fromOffset(24, 20)
                     end
                 end
                 local function begin_checkbox_keybind_capture()
@@ -3428,6 +3442,9 @@ function Library:create_ui()
                     return CheckboxManager._state == true
                 end, update_keybind_display, false)
                 Library:update_keybind_entry(settings.flag)
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return CheckboxManager
             end
             function ModuleManager:create_divider(settings: any)
@@ -3436,9 +3453,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += (settings and settings.showtopic) and 26 or 14
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local OuterFrame = Instance.new('Frame')
                 OuterFrame.Size = UDim2.new(0, 208, 0, (settings and settings.showtopic) and 20 or 8) 
                 OuterFrame.BackgroundTransparency = 1 
@@ -3475,6 +3489,9 @@ function Library:create_ui()
                     Pad.PaddingLeft = UDim.new(0, 6)
                     Pad.PaddingRight = UDim.new(0, 6)
                     Pad.Parent = TextLabel
+                end
+                if ModuleManager._state then
+                    sync_module_size(false)
                 end
                 return true
             end
@@ -3528,9 +3545,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += 32
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local Slider = Instance.new('TextButton')
                 Slider.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal);
                 Slider.TextSize = 14;
@@ -3747,6 +3761,9 @@ function Library:create_ui()
                         SliderManager:set_percentage(value, opts)
                     end
                 end)
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return SliderManager
             end
             function ModuleManager:create_dropdown(settings: any)
@@ -3845,9 +3862,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += 48
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 local Dropdown = Instance.new('TextButton')
                 Dropdown.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
                 Dropdown.TextColor3 = Color3.fromRGB(0, 0, 0)
@@ -4192,6 +4206,9 @@ function Library:create_ui()
                         DropdownManager:update(value, opts)
                     end
                 end
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return DropdownManager
             end
             function ModuleManager:create_feature(settings)
@@ -4200,9 +4217,6 @@ function Library:create_ui()
                     self._size = 17
                 end
                 self._size += 31
-                if ModuleManager._state then
-                    Module.Size = UDim2.fromOffset(240, get_expanded_height())
-                end
                 Library._config._flags = Library._config._flags or {}
                 Library._config._keybinds = Library._config._keybinds or {}
                 local action_only = settings.disablecheck == true
@@ -4288,7 +4302,7 @@ function Library:create_ui()
                 RightLayout.Parent = RightContainer
                 local KeybindBox = Instance.new("TextLabel")
                 KeybindBox.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-                KeybindBox.Size = UDim2.new(0, 22, 0, 18)
+                KeybindBox.Size = UDim2.new(0, 24, 0, 20)
                 KeybindBox.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 KeybindBox.TextColor3 = Color3.fromRGB(180, 180, 180)
                 KeybindBox.TextSize = 10
@@ -4299,7 +4313,7 @@ function Library:create_ui()
                 KeybindBox.Parent = RightContainer
                 KeybindBox.Visible = UserInputService.KeyboardEnabled
                 if not UserInputService.KeyboardEnabled then
-                    KeybindBox.Size = UDim2.fromOffset(0, 18)
+                    KeybindBox.Size = UDim2.fromOffset(0, 20)
                 end
                 local KeybindCorner = Instance.new("UICorner", KeybindBox)
                 KeybindCorner.CornerRadius = UDim.new(0, 5)
@@ -4312,9 +4326,9 @@ function Library:create_ui()
                 KeybindIcon.BackgroundTransparency = 1
                 KeybindIcon.AnchorPoint = Vector2.new(0.5, 0.5)
                 KeybindIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-                KeybindIcon.Size = UDim2.new(0, 12, 0, 12)
+                KeybindIcon.Size = UDim2.new(0, 14, 0, 14)
                 KeybindIcon.Image = "rbxassetid://10709818996"
-                KeybindIcon.ImageColor3 = Color3.fromRGB(160, 160, 160)
+                KeybindIcon.ImageColor3 = Color3.fromRGB(180, 180, 180)
                 KeybindIcon.ScaleType = Enum.ScaleType.Fit
                 KeybindIcon.ZIndex = 2
                 KeybindIcon.Parent = KeybindBox
@@ -4344,7 +4358,7 @@ function Library:create_ui()
                         Color = Color3.fromRGB(48, 48, 48)
                     }):Play()
                     TweenService:Create(KeybindIcon, TweenInfo.new(0.15), {
-                        ImageColor3 = Color3.fromRGB(160, 160, 160)
+                        ImageColor3 = Color3.fromRGB(180, 180, 180)
                     }):Play()
                 end)
                 local function resize_keybind_box(text)
@@ -4358,13 +4372,13 @@ function Library:create_ui()
                         return TextService:GetTextBoundsAsync(font_params)
                     end)
                     local width = success and font_size.X or (#label_text * 6)
-                    KeybindBox.Size = UDim2.fromOffset(math.clamp(width + 10, 22, 75), 18)
+                    KeybindBox.Size = UDim2.fromOffset(math.clamp(width + 12, 24, 80), 20)
                 end
                 local function update_keybind_display(key_name, is_picking)
                     if is_picking then
                         KeybindIcon.Visible = false
                         KeybindBox.Text = "..."
-                        KeybindBox.Size = UDim2.fromOffset(22, 18)
+                        KeybindBox.Size = UDim2.fromOffset(24, 20)
                     elseif key_name and key_name ~= "Unknown" and key_name ~= "" and key_name ~= "None" then
                         KeybindIcon.Visible = false
                         KeybindBox.Text = key_name
@@ -4372,7 +4386,7 @@ function Library:create_ui()
                     else
                         KeybindIcon.Visible = true
                         KeybindBox.Text = ""
-                        KeybindBox.Size = UDim2.fromOffset(22, 18)
+                        KeybindBox.Size = UDim2.fromOffset(24, 20)
                     end
                 end
                 update_keybind_display(Library:get_keybind_name(settings.flag))
@@ -4549,6 +4563,7 @@ function Library:create_ui()
         local MobileToggle = Instance.new("TextButton")
         MobileToggle.Name = "MobileToggle"
         MobileToggle.Size = UDim2.new(0, 42, 0, 42)
+        MobileToggle.AnchorPoint = Vector2.new(0.5, 0)
         MobileToggle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
         MobileToggle.BorderSizePixel = 0
         MobileToggle.AutoButtonColor = false
@@ -4573,8 +4588,8 @@ function Library:create_ui()
         ToggleIcon.BackgroundTransparency = 1
         ToggleIcon.AnchorPoint = Vector2.new(0.5, 0.5)
         ToggleIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-        ToggleIcon.Size = UDim2.new(0, 24, 0, 24)
-        ToggleIcon.Image = "rbxassetid://92006511782759"
+        ToggleIcon.Size = UDim2.new(0, 26, 0, 26)
+        ToggleIcon.Image = "rbxassetid://86490552961317"
         ToggleIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
         ToggleIcon.ScaleType = Enum.ScaleType.Fit
         ToggleIcon.ZIndex = 101
@@ -4592,7 +4607,7 @@ function Library:create_ui()
             and valid_position_component(savedPos[4])
         MobileToggle.Position = saved_position_valid
             and UDim2.new(savedPos[1], savedPos[2], savedPos[3], savedPos[4])
-            or UDim2.new(0.5, -21, 0, 14)
+            or UDim2.new(0.5, 0, 0, 12)
 
         local MobileToggleScale = Instance.new("UIScale")
         MobileToggleScale.Parent = MobileToggle
@@ -4610,8 +4625,9 @@ function Library:create_ui()
             local width = size.X > 0 and size.X or MobileToggle.Size.X.Offset
             local height = size.Y > 0 and size.Y or MobileToggle.Size.Y.Offset
             local margin = 12
-            local minX = margin
-            local maxX = viewport.X - width - margin
+            local half_w = width / 2
+            local minX = margin + half_w
+            local maxX = viewport.X - margin - half_w
             local minY = margin
             local maxY = viewport.Y - height - margin
             local absolute_x = pos.X.Scale * viewport.X + pos.X.Offset
@@ -4723,3 +4739,4 @@ function Library:create_ui()
     return self
 end
 return Library
+ 
