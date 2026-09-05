@@ -27,20 +27,20 @@ local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
 local mouse = Players.LocalPlayer:GetMouse()
 for _, gui in pairs((gethui and gethui():GetChildren()) or CoreGui:GetChildren()) do
-    if gui:FindFirstChild('RoniSignature') then
+    if gui:FindFirstChild('PrivotSignature') or gui:FindFirstChild('RoniSignature') then
         Debris:AddItem(gui, 0)
     end
 end
-local old_Allusive = CoreGui:FindFirstChild('roni')
+local old_Allusive = CoreGui:FindFirstChild('privot') or CoreGui:FindFirstChild('roni')
 if old_Allusive then
     Debris:AddItem(old_Allusive, 0)
 end
-if not isfolder("roni") then
-    makefolder("roni")
+if not isfolder("privot") then
+    pcall(makefolder, "privot")
 end
-local ConfigFolder = "Allusive"
+local ConfigFolder = "privot"
 if not isfolder(ConfigFolder) then
-    makefolder(ConfigFolder)
+    pcall(makefolder, ConfigFolder)
 end
 local Connections = {}
 Connections.disconnect = function(self, connection)
@@ -446,9 +446,9 @@ local function deep_copy_serialize(value: any, seen: any?, depth: number?)
     end
     local value_type = typeof(value)
     if value_type == "Color3" then
-        return { __roni_type = "Color3", values = { value.R, value.G, value.B } }
+        return { __privot_type = "Color3", __roni_type = "Color3", values = { value.R, value.G, value.B } }
     elseif value_type == "Vector2" then
-        return { __roni_type = "Vector2", values = { value.X, value.Y } }
+        return { __privot_type = "Vector2", __roni_type = "Vector2", values = { value.X, value.Y } }
     elseif value_type ~= "table" then
         if value_type == "number" and (value ~= value or value == math.huge or value == -math.huge) then
             error("config numbers must be finite")
@@ -487,9 +487,9 @@ local function deep_copy_deserialize(value: any, depth: number?)
         return value
     end
     local tagged_values = value.values
-    if value.__roni_type == "Color3" and type(tagged_values) == "table" and type(tagged_values[1]) == "number" and type(tagged_values[2]) == "number" and type(tagged_values[3]) == "number" then
+    if (value.__privot_type == "Color3" or value.__roni_type == "Color3") and type(tagged_values) == "table" and type(tagged_values[1]) == "number" and type(tagged_values[2]) == "number" and type(tagged_values[3]) == "number" then
         return Color3.new(tagged_values[1], tagged_values[2], tagged_values[3])
-    elseif value.__roni_type == "Vector2" and type(tagged_values) == "table" and type(tagged_values[1]) == "number" and type(tagged_values[2]) == "number" then
+    elseif (value.__privot_type == "Vector2" or value.__roni_type == "Vector2") and type(tagged_values) == "table" and type(tagged_values[1]) == "number" and type(tagged_values[2]) == "number" then
         return Vector2.new(tagged_values[1], tagged_values[2])
     end
     local copy = {}
@@ -521,12 +521,12 @@ function Config:_persistable_copy(config: any)
     copy._keybinds = type(copy._keybinds) == "table" and copy._keybinds or {}
     copy._library = type(copy._library) == "table" and copy._library or {}
     for flag in pairs(copy._flags) do
-        if type(flag) == "string" and (flag:sub(1, 9) == "roni_cfg_" or self._nonpersistent_flags[flag] == true) then
+        if type(flag) == "string" and (flag:sub(1, 11) == "privot_cfg_" or flag:sub(1, 9) == "roni_cfg_" or self._nonpersistent_flags[flag] == true) then
             copy._flags[flag] = nil
         end
     end
     for flag in pairs(copy._keybinds) do
-        if type(flag) == "string" and flag:sub(1, 9) == "roni_cfg_" then
+        if type(flag) == "string" and (flag:sub(1, 11) == "privot_cfg_" or flag:sub(1, 9) == "roni_cfg_") then
             copy._keybinds[flag] = nil
         end
     end
@@ -666,7 +666,15 @@ function Config:load(file_name: any, default: any?)
     }
     local path = self:_path(file_name)
     if not isfile(path) then
-        return deep_copy_deserialize(deep_copy_serialize(default_config))
+        local legacy_path = "Allusive/" .. tostring(file_name) .. ".json"
+        local legacy_path2 = "roni/" .. tostring(file_name) .. ".json"
+        if isfile(legacy_path) then
+            path = legacy_path
+        elseif isfile(legacy_path2) then
+            path = legacy_path2
+        else
+            return deep_copy_deserialize(deep_copy_serialize(default_config))
+        end
     end
     local success_read, raw = pcall(readfile, path)
     if not success_read or type(raw) ~= "string" then
@@ -893,10 +901,22 @@ function Library.SendNotification(settings)
 end
 function Library:get_screen_scale()
     local viewport_size = workspace.CurrentCamera.ViewportSize
+    if self._ui and self._ui.AbsoluteSize.Y > 0 then
+        viewport_size = self._ui.AbsoluteSize
+    end
     self._viewport_size = viewport_size
-    local width_scale = (viewport_size.X - 20) / 698
-    local height_scale = (viewport_size.Y - 20) / 479
-    self._ui_scale = math.clamp(math.min(width_scale, height_scale), 0.45, 1)
+    if self._is_mobile then
+        local screen_scale = (viewport_size.X / 1400) * 1.4375
+        self._ui_scale = math.clamp(
+            math.min(screen_scale, (viewport_size.X * 0.95) / 698, (viewport_size.Y * 0.95) / 479),
+            0.45,
+            1.25
+        )
+    else
+        local width_scale = (viewport_size.X - 20) / 698
+        local height_scale = (viewport_size.Y - 20) / 479
+        self._ui_scale = math.clamp(math.min(width_scale, height_scale), 0.45, 1)
+    end
 end
 function Library:apply_mobile_scale()
     if self._container_uiscale then
@@ -938,6 +958,7 @@ function Library:get_device()
         end
     end
     self._device = device
+    self._is_mobile = (device == 'Mobile') or UserInputService.TouchEnabled
 end
 function Library:removed(action: any)
     self._ui.AncestryChanged:Once(action)
@@ -982,7 +1003,7 @@ local function clone_config_value(value: any)
 end
 
 function Library:_is_internal_flag(flag: any)
-    return type(flag) == "string" and (self._internal_flags[flag] == true or flag:sub(1, 9) == "roni_cfg_")
+    return type(flag) == "string" and (self._internal_flags[flag] == true or flag:sub(1, 11) == "privot_cfg_" or flag:sub(1, 9) == "roni_cfg_")
 end
 
 function Library:register_flag(flag: any, expected_type: any, metadata: any?)
@@ -1130,7 +1151,7 @@ function Library:_notify_keybind(flag: any)
     for _, listener in ipairs(self._keybind_listeners[flag] or {}) do
         local success, listener_error = pcall(listener, key_name)
         if not success then
-            warn("[roni] keybind listener failed:", listener_error)
+            warn("[privot] keybind listener failed:", listener_error)
         end
     end
     self:update_keybind_entry(flag)
@@ -1407,7 +1428,15 @@ end
 function Library:_read_named_configs()
     local path = self:_named_configs_path()
     if not isfile(path) then
-        return {}, nil
+        local legacy_path = "Allusive/configs_" .. tostring(game.GameId) .. ".json"
+        local legacy_path2 = "roni/configs_" .. tostring(game.GameId) .. ".json"
+        if isfile(legacy_path) then
+            path = legacy_path
+        elseif isfile(legacy_path2) then
+            path = legacy_path2
+        else
+            return {}, nil
+        end
     end
     local ok, raw = pcall(readfile, path)
     if not ok or type(raw) ~= "string" or raw == "" then
@@ -1423,21 +1452,29 @@ function Library:_read_named_configs()
     local clean = {}
     for name, entry in pairs(decoded) do
         if type(name) == "string" and type(entry) == "table" and type(entry._flags) == "table" and (entry._keybinds == nil or type(entry._keybinds) == "table") then
-            clean[name] = entry
+            clean[name] = {
+                _flags = deep_copy_serialize(entry._flags),
+                _keybinds = entry._keybinds and deep_copy_serialize(entry._keybinds) or {}
+            }
         end
     end
     return clean, nil
 end
-function Library:_write_named_configs(map: any)
-    local path = self:_named_configs_path()
-    local ok, write_error = pcall(function()
-        writefile(path, HttpService:JSONEncode(deep_copy_serialize(map)))
+function Library:_write_named_configs(data: any)
+    local ok, encoded = pcall(function()
+        return HttpService:JSONEncode(deep_copy_serialize(data or {}))
     end)
     if not ok then
-        warn('[roni] failed to write named configs', write_error)
+        return false, "failed to encode named configs"
+    end
+    local write_ok, write_error = pcall(function()
+        writefile(self:_named_configs_path(), encoded)
+    end)
+    if not write_ok then
+        warn('[privot] failed to write named configs', write_error)
         return false, tostring(write_error)
     end
-    return true
+    return true, nil
 end
 function Library:get_named_config_names()
     local map = self:_read_named_configs()
@@ -1635,7 +1672,7 @@ function Library:register_keybind_entry(flag: any, title: string, get_state: any
     self:update_keybind_entry(flag)
 end
 function Library:create_ui()
-    local old_Allusive = CoreGui:FindFirstChild('roni')
+    local old_Allusive = CoreGui:FindFirstChild('privot') or CoreGui:FindFirstChild('roni')
     if old_Allusive then
         Debris:AddItem(old_Allusive, 0)
     end
@@ -1645,7 +1682,7 @@ function Library:create_ui()
     Allusive.Name = Util:random_string()
     
     local signature = Instance.new('StringValue')
-    signature.Name = 'RoniSignature'
+    signature.Name = 'PrivotSignature'
     signature.Parent = Allusive
 
     Allusive.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -1718,11 +1755,11 @@ function Library:create_ui()
     ClientName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
     ClientName.TextColor3 = Color3.fromRGB(255, 255, 255)
     ClientName.TextTransparency = 0.15
-    ClientName.Text = 'RONI'
+    ClientName.Text = 'PRIVOT'
     ClientName.Name = 'ClientName'
-    ClientName.Size = UDim2.new(0, 31, 0, 13)
+    ClientName.Size = UDim2.new(0, 52, 0, 13)
     ClientName.AnchorPoint = Vector2.new(0, 0.5)
-    ClientName.Position = UDim2.new(0.0560000017285347, 0, 0.054999999701976776, 0)
+    ClientName.Position = UDim2.new(0, 40, 0.055, 0)
     ClientName.BackgroundTransparency = 1
     ClientName.TextXAlignment = Enum.TextXAlignment.Left
     ClientName.BorderSizePixel = 0
@@ -1752,9 +1789,9 @@ function Library:create_ui()
     Icon.ScaleType = Enum.ScaleType.Fit
     Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
     Icon.AnchorPoint = Vector2.new(0, 0.5)
-    Icon.Image = 'rbxassetid://107819132007001'
+    Icon.Image = 'rbxassetid://86490552961317'
     Icon.BackgroundTransparency = 1
-    Icon.Position = UDim2.new(0.02500000037252903, 0, 0.054999999701976776, 0)
+    Icon.Position = UDim2.new(0, 16, 0.055, 0)
     Icon.Name = 'Icon'
     Icon.Size = UDim2.new(0, 18, 0, 18)
     Icon.BorderSizePixel = 0
@@ -1993,7 +2030,7 @@ function Library:create_ui()
             pcall(function() ContentProvider:PreloadAsync(content) end)
         end)
         self:get_device()
-        if self._device == 'Mobile' or self._device == 'Unknown' then
+        if self._device == 'Mobile' or self._device == 'Unknown' or UserInputService.TouchEnabled then
             self:get_screen_scale()
             self:apply_mobile_scale()
             Connections['ui_scale'] = workspace.CurrentCamera:GetPropertyChangedSignal('ViewportSize'):Connect(function()
@@ -2008,12 +2045,16 @@ function Library:create_ui()
         self:create_configs_tab()
     end
     function self:create_configs_tab()
-        local CFG_ICON = 'rbxassetid://107819132007001'
-        local NameFlag = 'roni_cfg_name'
-        local CodeFlag = 'roni_cfg_code'
-        local ListFlag = 'roni_cfg_list'
+        local CFG_ICON = 'rbxassetid://86490552961317'
+        local NameFlag = 'privot_cfg_name'
+        local CodeFlag = 'privot_cfg_code'
+        local ListFlag = 'privot_cfg_list'
         for _, flag in ipairs({
             NameFlag, CodeFlag, ListFlag,
+            'privot_cfg_module', 'privot_cfg_ui_settings',
+            'privot_cfg_save', 'privot_cfg_load', 'privot_cfg_delete',
+            'privot_cfg_export', 'privot_cfg_import',
+            'roni_cfg_name', 'roni_cfg_code', 'roni_cfg_list',
             'roni_cfg_module', 'roni_cfg_ui_settings',
             'roni_cfg_save', 'roni_cfg_load', 'roni_cfg_delete',
             'roni_cfg_export', 'roni_cfg_import'
@@ -2033,7 +2074,7 @@ function Library:create_ui()
         local Module = ConfigsTab:create_module({
             title = 'Config Manager',
             description = 'Save, load and share your configs.',
-            flag = 'roni_cfg_module',
+            flag = 'privot_cfg_module',
             rich = false,
             persist = false,
             export = false
@@ -2047,7 +2088,7 @@ function Library:create_ui()
         })
         Module:create_feature({
             title = 'Save Config',
-            flag = 'roni_cfg_save',
+            flag = 'privot_cfg_save',
             disablecheck = true,
             button_callback = function()
                 local name = self._config._flags[NameFlag] or ""
@@ -2087,7 +2128,7 @@ function Library:create_ui()
         })
         Module:create_feature({
             title = 'Load',
-            flag = 'roni_cfg_load',
+            flag = 'privot_cfg_load',
             disablecheck = true,
             button_callback = function()
                 local name = self._config._flags[ListFlag]
@@ -2110,7 +2151,7 @@ function Library:create_ui()
         })
         Module:create_feature({
             title = 'Delete',
-            flag = 'roni_cfg_delete',
+            flag = 'privot_cfg_delete',
             disablecheck = true,
             button_callback = function()
                 local name = self._config._flags[ListFlag]
@@ -2150,7 +2191,7 @@ function Library:create_ui()
         })
         Module:create_feature({
             title = 'Export Code',
-            flag = 'roni_cfg_export',
+            flag = 'privot_cfg_export',
             disablecheck = true,
             button_callback = function()
                 local encoded, code = pcall(function()
@@ -2178,7 +2219,7 @@ function Library:create_ui()
         })
         Module:create_feature({
             title = 'Import Code',
-            flag = 'roni_cfg_import',
+            flag = 'privot_cfg_import',
             disablecheck = true,
             button_callback = function()
                 local code = self._config._flags[CodeFlag] or ""
