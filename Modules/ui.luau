@@ -1,6 +1,4 @@
--- finall
-
-getgenv().GG = getgenv().GG or {}
+ getgenv().GG = getgenv().GG or {}
 GG.SelectedLanguage = GG.SelectedLanguage or "en"
 local SelectedLanguage = GG.SelectedLanguage
 local cloneref = cloneref or function(instance)
@@ -727,16 +725,33 @@ local Library = {
     _component_registry = {},
     _keybind_listeners = {},
     _internal_flags = {},
-    _active_dropdowns = {}
+    _active_dropdowns = {},
+    _keybind_entries = {},
+    _keybind_order = {},
+    _keybind_list_visible = true,
+    _keybinds_frame = nil,
+    _keybinds_widget = nil,
+    _keybinds_uiscale = nil,
+    _current = nil,
 }
+local function resolve_library(self: any)
+    if self and type(self) == "table" then
+        if self._keybinds_widget or self._ui then
+            return self
+        end
+    end
+    return Library._current or Library
+end
 Library.__index = Library
 function Library.new()
     local self = setmetatable({
         _loaded = false,
         _tab = 0,
-        _keybind_entries = {},
+        _keybind_entries = Library._keybind_entries,
+        _keybind_order = Library._keybind_order,
         _ui_scale = 1,
     }, Library)
+    Library._current = self
     self:create_ui()
     return self
 end
@@ -1089,21 +1104,34 @@ function Library:set_keybind(flag: any, key_code: any)
     if not flag then
         return nil
     end
+    local lib = resolve_library(self)
     self._config._keybinds = self._config._keybinds or {}
     local previous = self:get_keybind_name(flag)
     if not key_code or key_code == Enum.KeyCode.Unknown then
         self._config._keybinds[flag] = nil
+        if lib._keybind_entries and lib._keybind_entries[flag] then
+            lib._keybind_entries[flag].key_name = nil
+        end
         if previous ~= nil then self:_notify_keybind(flag) end
+        lib:update_keybind_list()
         return nil
     end
     local key_name = tostring(key_code):gsub("Enum.KeyCode.", "")
     if key_name == "" or key_name == "Unknown" or key_name == "None" then
         self._config._keybinds[flag] = nil
+        if lib._keybind_entries and lib._keybind_entries[flag] then
+            lib._keybind_entries[flag].key_name = nil
+        end
         if previous ~= nil then self:_notify_keybind(flag) end
+        lib:update_keybind_list()
         return nil
     end
     self._config._keybinds[flag] = "Enum.KeyCode." .. key_name
+    if lib._keybind_entries and lib._keybind_entries[flag] then
+        lib._keybind_entries[flag].key_name = key_name
+    end
     if previous ~= key_name then self:_notify_keybind(flag) end
+    lib:update_keybind_list()
     return key_name
 end
 function Library:set_toggle_keybind(key_code: any)
@@ -1523,152 +1551,251 @@ function Library:set_clipboard(text: string)
     return false
 end
 function Library:clear_keybind(flag: any)
-    if self._config and self._config._keybinds then
+    local lib = resolve_library(self)
+    if lib._config and lib._config._keybinds then
         local had_keybind = self:get_keybind_name(flag) ~= nil
-        self._config._keybinds[flag] = nil
+        lib._config._keybinds[flag] = nil
+        if lib._keybind_entries and lib._keybind_entries[flag] then
+            lib._keybind_entries[flag].key_name = nil
+        end
         if had_keybind then
             self:_notify_keybind(flag)
         end
+        lib:update_keybind_list()
     end
 end
 function Library:keybind_matches(flag: any, input: InputObject)
     local key_name = self:get_keybind_name(flag)
     return key_name ~= nil and input.KeyCode.Name == key_name
 end
-function Library:update_keybind_entry(flag: any)
-    if not self._keybind_entries or not self._keybind_entries[flag] then
+function Library:update_keybind_list()
+    local lib = resolve_library(self)
+    local widget = lib._keybinds_widget or Library._keybinds_widget
+    local frame = lib._keybinds_frame or Library._keybinds_frame
+    if not widget or not frame then
         return
     end
-    local entry = self._keybind_entries[flag]
-    local key_name = self:get_keybind_name(flag) or "..."
-    if entry.frame then
-        entry.frame.Visible = (key_name ~= "..." and key_name ~= "None" and key_name ~= "")
-    end
-    if entry.bind then
-        entry.bind.Text = "[ " .. key_name .. " ]"
-    end
-    if entry.state then
-        if entry.action then
-            entry.state.Text = "[ Action ]"
-            entry.state.TextColor3 = Color3.fromRGB(180, 180, 180)
-        else
-            local enabled = entry.get_state and entry.get_state() or false
-            entry.state.Text = enabled and "[ Enabled ]" or "[ Disabled ]"
-            entry.state.TextColor3 = enabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(120, 120, 120)
+
+    for _, child in ipairs(widget:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
         end
+    end
+
+    local entries = lib._keybind_entries or Library._keybind_entries or {}
+    local order = lib._keybind_order or Library._keybind_order or {}
+    local has_any = false
+    local processed = {}
+
+    local function render_entry(flag)
+        if processed[flag] then return end
+        processed[flag] = true
+        local entry = entries[flag]
+        if not entry then return end
+
+        local key_name = Library:get_keybind_name(flag) or entry.key_name
+        if not key_name or key_name == "" or key_name == "Unknown" or key_name == "None" or key_name == "..." then
+            return
+        end
+
+        has_any = true
+
+        local is_enabled = false
+        if entry.get_state then
+            local ok, val = pcall(entry.get_state)
+            if ok then is_enabled = (val == true) end
+        elseif lib._config and lib._config._flags and lib._config._flags[flag] ~= nil then
+            is_enabled = (lib._config._flags[flag] == true)
+        elseif Library._config and Library._config._flags and Library._config._flags[flag] ~= nil then
+            is_enabled = (Library._config._flags[flag] == true)
+        end
+
+        local text_color = is_enabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 180)
+        local display_key = "[ " .. key_name .. " ]"
+
+        local row = Instance.new("Frame")
+        row.Name = "Row_" .. tostring(flag)
+        row.BackgroundTransparency = 1
+        row.Size = UDim2.new(1, 0, 0, 24)
+        row.Parent = widget
+
+        local font_params = Instance.new("GetTextBoundsParams")
+        font_params.Text = display_key
+        font_params.Font = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+        font_params.Size = 13
+        font_params.Width = 1000
+        local key_width = 44
+        pcall(function()
+            key_width = TextService:GetTextBoundsAsync(font_params).X + 6
+        end)
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "Title"
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Size = UDim2.new(1, -(key_width + 8), 1, 0)
+        titleLabel.Position = UDim2.new(0, 0, 0, 0)
+        titleLabel.Text = entry.title or tostring(flag)
+        titleLabel.TextColor3 = text_color
+        titleLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
+        titleLabel.TextSize = 13
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        titleLabel.BorderSizePixel = 0
+        titleLabel.Parent = row
+
+        local keyBtn = Instance.new("TextButton")
+        keyBtn.Name = "Key"
+        keyBtn.BackgroundTransparency = 1
+        keyBtn.AnchorPoint = Vector2.new(1, 0.5)
+        keyBtn.Position = UDim2.new(1, 0, 0.5, 0)
+        keyBtn.Size = UDim2.new(0, key_width, 0, 20)
+        keyBtn.Text = display_key
+        keyBtn.TextColor3 = text_color
+        keyBtn.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+        keyBtn.TextSize = 13
+        keyBtn.TextXAlignment = Enum.TextXAlignment.Right
+        keyBtn.AutoButtonColor = false
+        keyBtn.BorderSizePixel = 0
+        keyBtn.Parent = row
+
+        keyBtn.MouseEnter:Connect(function()
+            keyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end)
+        keyBtn.MouseLeave:Connect(function()
+            keyBtn.TextColor3 = text_color
+        end)
+        keyBtn.MouseButton1Click:Connect(function()
+            lib:begin_keybind_widget_capture(flag)
+        end)
+    end
+
+    for _, flag in ipairs(order) do
+        render_entry(flag)
+    end
+    for flag, _ in pairs(entries) do
+        render_entry(flag)
+    end
+
+    local hud_flag = lib._config and lib._config._flags and lib._config._flags['ui_show_keybinds_hud']
+    if hud_flag == nil and Library._config and Library._config._flags then
+        hud_flag = Library._config._flags['ui_show_keybinds_hud']
+    end
+    local is_visible = (lib._keybind_list_visible ~= false) and (hud_flag ~= false)
+    if is_visible and has_any then
+        frame.Visible = true
+    else
+        frame.Visible = false
     end
 end
+function Library:update_keybind_entry(flag: any)
+    local lib = resolve_library(self)
+    if flag and lib._keybind_entries and lib._keybind_entries[flag] then
+        lib._keybind_entries[flag].key_name = Library:get_keybind_name(flag)
+    end
+    lib:update_keybind_list()
+end
 function Library:begin_keybind_widget_capture(flag: any)
-    if self._choosing_keybind or not UserInputService.KeyboardEnabled or not self._keybind_entries or not self._keybind_entries[flag] then
+    local lib = resolve_library(self)
+    if lib._choosing_keybind or not UserInputService.KeyboardEnabled or not lib._keybind_entries or not lib._keybind_entries[flag] then
         return
     end
-    self._choosing_keybind = true
-    local entry = self._keybind_entries[flag]
-    if entry.bind then
-        entry.bind.Text = "[ ... ]"
-    end
-    Connections:disconnect("keybind_widget_capture_" .. flag)
-    Connections["keybind_widget_capture_" .. flag] = UserInputService.InputBegan:Connect(function(input, processed)
-        if processed then
-            return
+    lib._choosing_keybind = true
+    Library._choosing_keybind = true
+
+    local entry = lib._keybind_entries[flag]
+    local previous_key = Library:get_keybind_name(flag)
+
+    local widget = lib._keybinds_widget or Library._keybinds_widget
+    if widget then
+        local row = widget:FindFirstChild("Row_" .. tostring(flag))
+        if row then
+            local keyBtn = row:FindFirstChild("Key")
+            if keyBtn and keyBtn:IsA("TextButton") then
+                keyBtn.Text = "[ ... ]"
+                keyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end
         end
+    end
+    if entry.on_changed then
+        pcall(entry.on_changed, "...", true)
+    end
+
+    local connection_key = "keybind_widget_capture_" .. tostring(flag)
+    Connections:disconnect(connection_key)
+    Connections[connection_key] = UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
         local key_name = nil
         if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.Escape then
-            self._choosing_keybind = false
-            self:update_keybind_entry(flag)
-            Connections:disconnect("keybind_widget_capture_" .. flag)
+            lib._choosing_keybind = false
+            Library._choosing_keybind = false
+            Connections:disconnect(connection_key)
+            if entry.on_changed then
+                pcall(entry.on_changed, previous_key, false)
+            end
+            lib:update_keybind_list()
             return
         elseif input.UserInputType == Enum.UserInputType.Keyboard then
-            if input.KeyCode == Enum.KeyCode.Unknown then
-                return
-            end
+            if input.KeyCode == Enum.KeyCode.Unknown then return end
             if input.KeyCode ~= Enum.KeyCode.Backspace then
-                key_name = self:set_keybind(flag, input.KeyCode)
+                key_name = Library:set_keybind(flag, input.KeyCode)
             else
-                self:clear_keybind(flag)
+                Library:clear_keybind(flag)
             end
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
-            self:clear_keybind(flag)
+            Library:clear_keybind(flag)
         else
             return
         end
-        Config:save(game.GameId, self._config)
+
+        Config:save(game.GameId, Library._config)
+        lib._choosing_keybind = false
+        Library._choosing_keybind = false
+        Connections:disconnect(connection_key)
+
         if entry.on_changed then
-            entry.on_changed(key_name)
+            pcall(entry.on_changed, key_name, false)
         end
-        self._choosing_keybind = false
-        self:update_keybind_entry(flag)
-        Connections:disconnect("keybind_widget_capture_" .. flag)
+        lib:update_keybind_list()
     end)
 end
 function Library:register_keybind_entry(flag: any, title: string, get_state: any, on_changed: any, action: boolean)
-    if not flag or not self._keybinds_widget then
-        return
+    if not flag then return end
+    local lib = resolve_library(self)
+    lib._keybind_entries = lib._keybind_entries or Library._keybind_entries or {}
+    lib._keybind_order = lib._keybind_order or Library._keybind_order or {}
+    Library._keybind_entries = lib._keybind_entries
+    Library._keybind_order = lib._keybind_order
+
+    local existing = lib._keybind_entries[flag]
+    if existing then
+        existing.title = title or existing.title or tostring(flag)
+        existing.get_state = get_state or existing.get_state
+        existing.on_changed = on_changed or existing.on_changed
+        existing.action = (action == true)
+        existing.key_name = Library:get_keybind_name(flag) or existing.key_name
+    else
+        table.insert(lib._keybind_order, flag)
+        lib._keybind_entries[flag] = {
+            flag = flag,
+            title = title or tostring(flag),
+            get_state = get_state,
+            on_changed = on_changed,
+            action = (action == true),
+            key_name = Library:get_keybind_name(flag)
+        }
     end
-    self._keybind_entries = self._keybind_entries or {}
-    if self._keybind_entries[flag] then
-        self._keybind_entries[flag].title = title
-        self._keybind_entries[flag].get_state = get_state
-        self._keybind_entries[flag].on_changed = on_changed
-        self._keybind_entries[flag].action = action
-        self:update_keybind_entry(flag)
-        return
+
+    lib:update_keybind_list()
+end
+function Library:unregister_keybind_entry(flag: any)
+    local lib = resolve_library(self)
+    if not flag or not lib._keybind_entries then return end
+    lib._keybind_entries[flag] = nil
+    if lib._keybind_order then
+        local idx = table.find(lib._keybind_order, flag)
+        if idx then table.remove(lib._keybind_order, idx) end
     end
-    local entry = Instance.new("Frame")
-    entry.Name = "KB_" .. tostring(flag)
-    entry.Size = UDim2.new(1, 0, 0, 20)
-    entry.BackgroundTransparency = 1
-    entry.Parent = self._keybinds_widget
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, -135, 1, 0)
-    nameLabel.Position = UDim2.new(0, 0, 0, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = title or tostring(flag)
-    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    nameLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
-    nameLabel.TextSize = 11
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-    nameLabel.Parent = entry
-    local stateLabel = Instance.new("TextLabel")
-    stateLabel.Name = "State"
-    stateLabel.Size = UDim2.new(0, 68, 1, 0)
-    stateLabel.Position = UDim2.new(1, -68, 0, 0)
-    stateLabel.BackgroundTransparency = 1
-    stateLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
-    stateLabel.TextSize = 10
-    stateLabel.TextXAlignment = Enum.TextXAlignment.Right
-    stateLabel.Parent = entry
-    local bindLabel = Instance.new("TextButton")
-    bindLabel.Name = "Bind"
-    bindLabel.Size = UDim2.new(0, 60, 1, 0)
-    bindLabel.Position = UDim2.new(1, -132, 0, 0)
-    bindLabel.BackgroundTransparency = 1
-    bindLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    bindLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    bindLabel.TextSize = 10
-    bindLabel.TextXAlignment = Enum.TextXAlignment.Right
-    bindLabel.AutoButtonColor = false
-    bindLabel.Parent = entry
-    bindLabel.MouseEnter:Connect(function()
-        bindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end)
-    bindLabel.MouseLeave:Connect(function()
-        bindLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    end)
-    self._keybind_entries[flag] = {
-        frame = entry,
-        bind = bindLabel,
-        state = stateLabel,
-        title = title,
-        get_state = get_state,
-        on_changed = on_changed,
-        action = action
-    }
-    bindLabel.MouseButton1Click:Connect(function()
-        self:begin_keybind_widget_capture(flag)
-    end)
-    self:update_keybind_entry(flag)
+    lib:update_keybind_list()
 end
 function Library:create_ui()
     local old_Allusive = CoreGui:FindFirstChild('privot') or CoreGui:FindFirstChild('roni')
@@ -1840,73 +1967,98 @@ function Library:create_ui()
     UIScale.Parent = Container
     self._container_uiscale = UIScale
     self._ui = Allusive
+    Library._current = self
+
     local KeybindsWidget = Instance.new("Frame")
     KeybindsWidget.Name = "_keybinds_widget"
     KeybindsWidget.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    KeybindsWidget.BackgroundTransparency = 0.05
-    KeybindsWidget.Position = UDim2.new(0, 18, 0.25, 0)
-    KeybindsWidget.Size = UDim2.new(0, 240, 0, 0)
+    KeybindsWidget.BackgroundTransparency = 0
+    KeybindsWidget.Position = UDim2.new(0, 16, 0.2, 0)
+    KeybindsWidget.Size = UDim2.new(0, 250, 0, 0)
     KeybindsWidget.AutomaticSize = Enum.AutomaticSize.Y
     KeybindsWidget.BorderSizePixel = 0
     KeybindsWidget.ClipsDescendants = true
     KeybindsWidget.Visible = false
     KeybindsWidget.Active = true
     KeybindsWidget.Parent = Allusive
+
     local KBWidgetCorner = Instance.new("UICorner")
-    KBWidgetCorner.CornerRadius = UDim.new(0, 6)
+    KBWidgetCorner.CornerRadius = UDim.new(0, 4)
     KBWidgetCorner.Parent = KeybindsWidget
+
     local KBWidgetStroke = Instance.new("UIStroke")
     KBWidgetStroke.Color = Color3.fromRGB(42, 42, 42)
     KBWidgetStroke.Thickness = 1
     KBWidgetStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     KBWidgetStroke.Parent = KeybindsWidget
+
     local KBWidgetScale = Instance.new("UIScale")
+    KBWidgetScale.Scale = self._ui_scale or 1
     KBWidgetScale.Parent = KeybindsWidget
     self._keybinds_uiscale = KBWidgetScale
+    Library._keybinds_uiscale = KBWidgetScale
+
+    local KBListLayout = Instance.new("UIListLayout")
+    KBListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    KBListLayout.Padding = UDim.new(0, 0)
+    KBListLayout.Parent = KeybindsWidget
+
     local KBHeader = Instance.new("Frame")
     KBHeader.BackgroundTransparency = 1
-    KBHeader.Size = UDim2.new(1, 0, 0, 30)
+    KBHeader.LayoutOrder = 0
+    KBHeader.Size = UDim2.new(1, 0, 0, 32)
     KBHeader.Parent = KeybindsWidget
+
     local KBIcon = Instance.new("ImageLabel")
     KBIcon.BackgroundTransparency = 1
     KBIcon.AnchorPoint = Vector2.new(0, 0.5)
-    KBIcon.Position = UDim2.new(0, 10, 0.5, 0)
+    KBIcon.Position = UDim2.new(0, 12, 0.5, 0)
     KBIcon.Size = UDim2.new(0, 14, 0, 14)
-    KBIcon.Image = "rbxassetid://10709818996"
-    KBIcon.ImageColor3 = Color3.fromRGB(200, 200, 200)
+    KBIcon.Image = "rbxassetid://10723416765"
+    KBIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
     KBIcon.Parent = KBHeader
+
     local KBTitle = Instance.new("TextLabel")
     KBTitle.BackgroundTransparency = 1
     KBTitle.Size = UDim2.new(1, 0, 1, 0)
     KBTitle.Text = "Keybinds"
     KBTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     KBTitle.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    KBTitle.TextSize = 12
+    KBTitle.TextSize = 13
     KBTitle.TextXAlignment = Enum.TextXAlignment.Center
     KBTitle.Parent = KBHeader
+
     local KBDivider = Instance.new("Frame")
     KBDivider.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
     KBDivider.BorderSizePixel = 0
     KBDivider.Position = UDim2.new(0, 0, 1, -1)
     KBDivider.Size = UDim2.new(1, 0, 0, 1)
     KBDivider.Parent = KBHeader
+
     local KBContent = Instance.new("Frame")
     KBContent.BackgroundTransparency = 1
+    KBContent.LayoutOrder = 1
     KBContent.AutomaticSize = Enum.AutomaticSize.Y
     KBContent.Size = UDim2.new(1, 0, 0, 0)
     KBContent.Parent = KeybindsWidget
+
     local KBList = Instance.new("UIListLayout")
-    KBList.Padding = UDim.new(0, 4)
+    KBList.Padding = UDim.new(0, 2)
     KBList.SortOrder = Enum.SortOrder.LayoutOrder
     KBList.Parent = KBContent
+
     local KBPadding = Instance.new("UIPadding")
     KBPadding.PaddingTop = UDim.new(0, 6)
     KBPadding.PaddingBottom = UDim.new(0, 8)
-    KBPadding.PaddingLeft = UDim.new(0, 10)
-    KBPadding.PaddingRight = UDim.new(0, 10)
+    KBPadding.PaddingLeft = UDim.new(0, 12)
+    KBPadding.PaddingRight = UDim.new(0, 12)
     KBPadding.Parent = KBContent
+
     self._keybinds_widget = KBContent
+    Library._keybinds_widget = KBContent
     self._keybinds_frame = KeybindsWidget
+    Library._keybinds_frame = KeybindsWidget
+
     local kb_dragging = false
     local kb_drag_start = nil
     local kb_start_pos = nil
@@ -1926,11 +2078,30 @@ function Library:create_ui()
     end)
     UserInputService.InputChanged:Connect(function(input)
         if kb_dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local scale = self._ui_scale or 1
+            local scale = (self._ui_scale and self._ui_scale > 0) and self._ui_scale or 1
             local delta = (input.Position - kb_drag_start) / scale
-            KeybindsWidget.Position = UDim2.new(kb_start_pos.X.Scale, kb_start_pos.X.Offset + delta.X, kb_start_pos.Y.Scale, kb_start_pos.Y.Offset + delta.Y)
+            TweenService:Create(KeybindsWidget, TweenInfo.new(0.15), {
+                Position = UDim2.new(
+                    kb_start_pos.X.Scale,
+                    kb_start_pos.X.Offset + delta.X,
+                    kb_start_pos.Y.Scale,
+                    kb_start_pos.Y.Offset + delta.Y
+                )
+            }):Play()
         end
     end)
+
+    if self._config and self._config._flags then
+        if self._config._flags['ui_show_keybinds_hud'] == nil then
+            self._config._flags['ui_show_keybinds_hud'] = true
+        end
+        self._keybind_list_visible = self._config._flags['ui_show_keybinds_hud'] ~= false
+        Library._keybind_list_visible = self._keybind_list_visible
+    else
+        self._keybind_list_visible = true
+        Library._keybind_list_visible = true
+    end
+    self:update_keybind_list()
     local active_drag_input = nil
     local function on_drag(input: InputObject, process: boolean)
         if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not self._dragging then 
@@ -2284,20 +2455,22 @@ function Library:create_ui()
         Module:create_feature({
             title = 'Keybinds HUD',
             flag = 'ui_show_keybinds_hud',
-            default = false,
+            default = true,
             persist = true,
             export = false,
             button_callback = function()
-                if self._keybinds_frame then
-                    self._keybinds_frame.Visible = not self._keybinds_frame.Visible
-                    self._config._flags['ui_show_keybinds_hud'] = self._keybinds_frame.Visible
-                    Config:save(game.GameId, self._config)
-                end
+                self._keybind_list_visible = not (self._keybind_list_visible ~= false)
+                Library._keybind_list_visible = self._keybind_list_visible
+                self._config._flags['ui_show_keybinds_hud'] = self._keybind_list_visible
+                Config:save(game.GameId, self._config)
+                self:update_keybind_list()
             end,
             callback = function(state)
-                if self._keybinds_frame then
-                    self._keybinds_frame.Visible = state == true
-                end
+                self._keybind_list_visible = (state == true)
+                Library._keybind_list_visible = self._keybind_list_visible
+                self._config._flags['ui_show_keybinds_hud'] = self._keybind_list_visible
+                Config:save(game.GameId, self._config)
+                self:update_keybind_list()
             end
         })
     end
@@ -3462,6 +3635,138 @@ function Library:create_ui()
                     sync_module_size(false)
                 end
                 return CheckboxManager
+            end
+            function ModuleManager:create_keybind(arg1: any, arg2: any)
+                local settings = {}
+                if type(arg1) == "string" then
+                    settings = arg2 or {}
+                    settings.flag = arg1
+                elseif type(arg1) == "table" then
+                    settings = arg1
+                end
+                LayoutOrderModule = LayoutOrderModule + 1
+                if self._size == 0 then
+                    self._size = 17
+                end
+                self._size += 28
+                local flag = settings.flag or ("Keybind_" .. tostring(LayoutOrderModule))
+                local title = settings.title or "Keybind"
+                local default_key = settings.default or Enum.KeyCode.Unknown
+
+                if not Library:get_keybind_name(flag) and default_key and default_key ~= "Unknown" and default_key ~= Enum.KeyCode.Unknown then
+                    Library:set_keybind(flag, default_key)
+                end
+
+                local Row = Instance.new("Frame")
+                Row.Name = "KeybindRow"
+                Row.Size = UDim2.new(0, 208, 0, 24)
+                Row.BackgroundTransparency = 1
+                Row.Parent = Options
+                Row.LayoutOrder = LayoutOrderModule
+
+                local Title = Instance.new("TextLabel")
+                Title.Size = UDim2.new(1, -60, 1, 0)
+                Title.BackgroundTransparency = 1
+                Title.Text = title
+                Title.TextColor3 = Color3.fromRGB(180, 180, 180)
+                Title.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
+                Title.TextSize = 12
+                Title.TextXAlignment = Enum.TextXAlignment.Left
+                Title.TextTruncate = Enum.TextTruncate.AtEnd
+                Title.Parent = Row
+
+                local KeyBtn = Instance.new("TextButton")
+                KeyBtn.Name = "KeyBtn"
+                KeyBtn.Size = UDim2.new(0, 24, 0, 20)
+                KeyBtn.AnchorPoint = Vector2.new(1, 0.5)
+                KeyBtn.Position = UDim2.new(1, 0, 0.5, 0)
+                KeyBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                KeyBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+                KeyBtn.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+                KeyBtn.TextSize = 10
+                KeyBtn.Text = ""
+                KeyBtn.AutoButtonColor = false
+                KeyBtn.BorderSizePixel = 0
+                KeyBtn.Parent = Row
+
+                local Corner = Instance.new("UICorner", KeyBtn)
+                Corner.CornerRadius = UDim.new(0, 5)
+                local Stroke = Instance.new("UIStroke", KeyBtn)
+                Stroke.Color = Color3.fromRGB(42, 42, 42)
+                Stroke.Thickness = 1
+                Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+                local Icon = Instance.new("ImageLabel")
+                Icon.BackgroundTransparency = 1
+                Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+                Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+                Icon.Size = UDim2.new(0, 14, 0, 14)
+                Icon.Image = "rbxassetid://10709818996"
+                Icon.ImageColor3 = Color3.fromRGB(180, 180, 180)
+                Icon.ScaleType = Enum.ScaleType.Fit
+                Icon.Parent = KeyBtn
+
+                local function update_display(key_name, is_picking)
+                    if is_picking then
+                        Icon.Visible = false
+                        KeyBtn.Text = "..."
+                        KeyBtn.Size = UDim2.fromOffset(24, 20)
+                    elseif key_name and key_name ~= "" and key_name ~= "Unknown" and key_name ~= "None" and key_name ~= "..." then
+                        Icon.Visible = false
+                        KeyBtn.Text = key_name
+                        local font_params = Instance.new("GetTextBoundsParams")
+                        font_params.Text = key_name
+                        font_params.Font = KeyBtn.FontFace
+                        font_params.Size = KeyBtn.TextSize
+                        font_params.Width = 1000
+                        local width = 18
+                        pcall(function() width = TextService:GetTextBoundsAsync(font_params).X end)
+                        KeyBtn.Size = UDim2.fromOffset(math.clamp(width + 12, 24, 80), 20)
+                    else
+                        Icon.Visible = true
+                        KeyBtn.Text = ""
+                        KeyBtn.Size = UDim2.fromOffset(24, 20)
+                    end
+                end
+
+                update_display(Library:get_keybind_name(flag))
+
+                KeyBtn.MouseEnter:Connect(function()
+                    TweenService:Create(KeyBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(40, 40, 40), TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+                    TweenService:Create(Icon, TweenInfo.new(0.15), { ImageColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+                end)
+                KeyBtn.MouseLeave:Connect(function()
+                    TweenService:Create(KeyBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(32, 32, 32), TextColor3 = Color3.fromRGB(180, 180, 180) }):Play()
+                    TweenService:Create(Icon, TweenInfo.new(0.15), { ImageColor3 = Color3.fromRGB(180, 180, 180) }):Play()
+                end)
+
+                KeyBtn.MouseButton1Click:Connect(function()
+                    begin_component_keybind_capture(flag, update_display)
+                end)
+
+                local keyPressConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                    if gameProcessed or Library._choosing_keybind or UserInputService:GetFocusedTextBox() then return end
+                    if input.UserInputType == Enum.UserInputType.Keyboard and Library:keybind_matches(flag, input) then
+                        if settings.callback then
+                            settings.callback()
+                        end
+                    end
+                end)
+                Connections["keybind_press_" .. flag] = keyPressConn
+                register_managed_keybind_listener(flag, update_display, Row)
+                Library:register_keybind_entry(flag, title, function() return true end, update_display, true)
+                Library:update_keybind_entry(flag)
+
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
+
+                local KeybindController = {}
+                function KeybindController:set_keybind(new_key)
+                    Library:set_keybind(flag, new_key)
+                    update_display(Library:get_keybind_name(flag))
+                end
+                return KeybindController
             end
             function ModuleManager:create_divider(settings: any)
                 LayoutOrderModule = LayoutOrderModule + 1;
