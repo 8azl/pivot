@@ -1,3 +1,5 @@
+-- finall
+
 getgenv().GG = getgenv().GG or {}
 GG.SelectedLanguage = GG.SelectedLanguage or "en"
 local SelectedLanguage = GG.SelectedLanguage
@@ -2007,6 +2009,13 @@ function Library:create_ui()
             TweenService:Create(Container, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Size = UDim2.fromOffset(698, 479)
             }):Play()
+            task.defer(function()
+                for _, mod in ipairs(self._all_modules or {}) do
+                    if mod._state and mod.sync_size then
+                        mod.sync_size(false)
+                    end
+                end
+            end)
         else
             Library:close_all_dropdowns()
             local hideTween = TweenService:Create(Container, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
@@ -2367,6 +2376,13 @@ function Library:create_ui()
             end
             object.Visible = false
         end
+        task.defer(function()
+            for _, mod in ipairs(self._all_modules or {}) do
+                if mod._state and mod.sync_size then
+                    mod.sync_size(false)
+                end
+            end
+        end)
     end
     function self:create_tab(title: string, icon: string)
         local TabManager = {}
@@ -4521,6 +4537,9 @@ function Library:create_ui()
                         Color = Color3.fromRGB(44, 44, 44)
                     }):Play()
                 end)
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
                 return FeatureContainer
             end                    
             return ModuleManager
@@ -4739,4 +4758,3 @@ function Library:create_ui()
     return self
 end
 return Library
- 
