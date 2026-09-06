@@ -1086,16 +1086,39 @@ function Library:remove_table_value(__table: any, table_value: string)
         table.remove(__table, index)
     end
 end
+local function resolve_canonical_key_name(key_code: any)
+    if typeof(key_code) == "EnumItem" then
+        return key_code.Name
+    end
+    if type(key_code) == "string" then
+        local stripped = key_code:gsub("Enum%.KeyCode%.", ""):gsub("^%s*(.-)%s*$", "%1")
+        if stripped == "" or stripped:lower() == "unknown" or stripped:lower() == "none" then
+            return nil
+        end
+        for _, item in ipairs(Enum.KeyCode:GetEnumItems()) do
+            if string.lower(item.Name) == string.lower(stripped) then
+                return item.Name
+            end
+        end
+        return stripped
+    end
+    return nil
+end
 function Library:get_keybind_name(flag: any)
-    if not flag or not self._config or not self._config._keybinds then
+    if not flag then
         return nil
     end
-    local keybind = self._config._keybinds[flag]
+    local lib = resolve_library(self)
+    local cfg = (lib and lib._config) or (Library and Library._config)
+    if not cfg or not cfg._keybinds then
+        return nil
+    end
+    local keybind = cfg._keybinds[flag]
     if not keybind then
         return nil
     end
-    local key_name = tostring(keybind):gsub("Enum.KeyCode.", "")
-    if key_name == "" or key_name == "Unknown" or key_name == "None" then
+    local key_name = resolve_canonical_key_name(keybind)
+    if not key_name or key_name == "" or key_name == "Unknown" or key_name == "None" then
         return nil
     end
     return key_name
@@ -1105,37 +1128,111 @@ function Library:set_keybind(flag: any, key_code: any)
         return nil
     end
     local lib = resolve_library(self)
+    self._config = self._config or {}
     self._config._keybinds = self._config._keybinds or {}
+    if lib and lib ~= self and lib._config then
+        lib._config._keybinds = lib._config._keybinds or {}
+    end
+    if Library and Library ~= self and Library._config then
+        Library._config._keybinds = Library._config._keybinds or {}
+    end
+
     local previous = self:get_keybind_name(flag)
-    if not key_code or key_code == Enum.KeyCode.Unknown then
+    local key_name = resolve_canonical_key_name(key_code)
+
+    if not key_name or key_name == "" or key_name == "Unknown" or key_name == "None" then
         self._config._keybinds[flag] = nil
+        if lib and lib._config and lib._config._keybinds then lib._config._keybinds[flag] = nil end
+        if Library and Library._config and Library._config._keybinds then Library._config._keybinds[flag] = nil end
         if lib._keybind_entries and lib._keybind_entries[flag] then
             lib._keybind_entries[flag].key_name = nil
+        end
+        if Library._keybind_entries and Library._keybind_entries[flag] then
+            Library._keybind_entries[flag].key_name = nil
         end
         if previous ~= nil then self:_notify_keybind(flag) end
         lib:update_keybind_list()
         return nil
     end
-    local key_name = tostring(key_code):gsub("Enum.KeyCode.", "")
-    if key_name == "" or key_name == "Unknown" or key_name == "None" then
-        self._config._keybinds[flag] = nil
-        if lib._keybind_entries and lib._keybind_entries[flag] then
-            lib._keybind_entries[flag].key_name = nil
-        end
-        if previous ~= nil then self:_notify_keybind(flag) end
-        lib:update_keybind_list()
-        return nil
-    end
-    self._config._keybinds[flag] = "Enum.KeyCode." .. key_name
+
+    local full_name = "Enum.KeyCode." .. key_name
+    self._config._keybinds[flag] = full_name
+    if lib and lib._config and lib._config._keybinds then lib._config._keybinds[flag] = full_name end
+    if Library and Library._config and Library._config._keybinds then Library._config._keybinds[flag] = full_name end
+
     if lib._keybind_entries and lib._keybind_entries[flag] then
         lib._keybind_entries[flag].key_name = key_name
     end
+    if Library._keybind_entries and Library._keybind_entries[flag] then
+        Library._keybind_entries[flag].key_name = key_name
+    end
+
     if previous ~= key_name then self:_notify_keybind(flag) end
     lib:update_keybind_list()
     return key_name
 end
 function Library:set_toggle_keybind(key_code: any)
     self._toggle_keybind = key_code
+end
+function Library:Minimize()
+    local lib = resolve_library(self)
+    lib._ui_open = not lib._ui_open
+    lib:change_visiblity(lib._ui_open)
+end
+Library.minimize = Library.Minimize
+
+function Library:select_tab(target: any)
+    local lib = resolve_library(self)
+    local tab_info = nil
+    if type(target) == "number" then
+        tab_info = (lib and lib._tabs_list and lib._tabs_list[target]) or (Library._tabs_list and Library._tabs_list[target])
+    elseif type(target) == "string" then
+        local key = string.lower(target)
+        tab_info = (lib and lib._tabs_by_name and lib._tabs_by_name[key]) or (Library._tabs_by_name and Library._tabs_by_name[key])
+    end
+    if tab_info and tab_info.tab_btn and tab_info.left and tab_info.right then
+        lib:update_tabs(tab_info.tab_btn)
+        lib:update_sections(tab_info.left, tab_info.right)
+    end
+end
+
+function Library:create_keybind(arg1: any, arg2: any)
+    local lib = resolve_library(self)
+    if lib._tabs_list and #lib._tabs_list > 0 then
+        local target_tab = lib._tabs_list[#lib._tabs_list]
+        if target_tab and target_tab.manager then
+            return target_tab.manager:create_keybind(arg1, arg2)
+        end
+    end
+    local settings = {}
+    if type(arg1) == "string" then
+        settings = arg2 or {}
+        settings.flag = arg1
+    elseif type(arg1) == "table" then
+        settings = arg1
+    end
+    local flag = settings.flag or "keybind"
+    local title = settings.title or tostring(flag)
+    local default_key = settings.default or Enum.KeyCode.Unknown
+    if not Library:get_keybind_name(flag) and default_key and default_key ~= "Unknown" and default_key ~= Enum.KeyCode.Unknown then
+        Library:set_keybind(flag, default_key)
+    end
+    Library:register_keybind_entry(flag, title, function() return true end, nil, true)
+    Library:update_keybind_entry(flag)
+    if settings.callback then
+        local keyPressConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed or Library._choosing_keybind or UserInputService:GetFocusedTextBox() then return end
+            if input.UserInputType == Enum.UserInputType.Keyboard and Library:keybind_matches(flag, input) then
+                settings.callback()
+            end
+        end)
+        Connections["lib_keybind_press_" .. flag] = keyPressConn
+    end
+    return {
+        set_keybind = function(_, new_key)
+            Library:set_keybind(flag, new_key)
+        end
+    }
 end
 function Library:load()
 end
@@ -1566,7 +1663,10 @@ function Library:clear_keybind(flag: any)
 end
 function Library:keybind_matches(flag: any, input: InputObject)
     local key_name = self:get_keybind_name(flag)
-    return key_name ~= nil and input.KeyCode.Name == key_name
+    if not key_name or not input or not input.KeyCode then
+        return false
+    end
+    return string.lower(input.KeyCode.Name) == string.lower(key_name)
 end
 function Library:update_keybind_list()
     local lib = resolve_library(self)
@@ -1577,7 +1677,7 @@ function Library:update_keybind_list()
     end
 
     for _, child in ipairs(widget:GetChildren()) do
-        if child:IsA("Frame") then
+        if child:IsA("Frame") or child:IsA("TextLabel") then
             child:Destroy()
         end
     end
@@ -1617,6 +1717,7 @@ function Library:update_keybind_list()
         row.Name = "Row_" .. tostring(flag)
         row.BackgroundTransparency = 1
         row.Size = UDim2.new(1, 0, 0, 24)
+        row.ZIndex = 51
         row.Parent = widget
 
         local font_params = Instance.new("GetTextBoundsParams")
@@ -1641,6 +1742,7 @@ function Library:update_keybind_list()
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
         titleLabel.BorderSizePixel = 0
+        titleLabel.ZIndex = 52
         titleLabel.Parent = row
 
         local keyBtn = Instance.new("TextButton")
@@ -1656,6 +1758,7 @@ function Library:update_keybind_list()
         keyBtn.TextXAlignment = Enum.TextXAlignment.Right
         keyBtn.AutoButtonColor = false
         keyBtn.BorderSizePixel = 0
+        keyBtn.ZIndex = 52
         keyBtn.Parent = row
 
         keyBtn.MouseEnter:Connect(function()
@@ -1681,8 +1784,29 @@ function Library:update_keybind_list()
         hud_flag = Library._config._flags['ui_show_keybinds_hud']
     end
     local is_visible = (lib._keybind_list_visible ~= false) and (hud_flag ~= false)
-    if is_visible and has_any then
+    if is_visible then
         frame.Visible = true
+        if not has_any then
+            local emptyRow = Instance.new("Frame")
+            emptyRow.Name = "EmptyRow"
+            emptyRow.BackgroundTransparency = 1
+            emptyRow.Size = UDim2.new(1, 0, 0, 24)
+            emptyRow.ZIndex = 51
+            emptyRow.Parent = widget
+
+            local emptyLabel = Instance.new("TextLabel")
+            emptyLabel.Name = "EmptyLabel"
+            emptyLabel.BackgroundTransparency = 1
+            emptyLabel.Size = UDim2.new(1, 0, 1, 0)
+            emptyLabel.Text = "No active keybinds"
+            emptyLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
+            emptyLabel.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Italic)
+            emptyLabel.TextSize = 12
+            emptyLabel.TextXAlignment = Enum.TextXAlignment.Center
+            emptyLabel.BorderSizePixel = 0
+            emptyLabel.ZIndex = 52
+            emptyLabel.Parent = emptyRow
+        end
     else
         frame.Visible = false
     end
@@ -1696,9 +1820,25 @@ function Library:update_keybind_entry(flag: any)
 end
 function Library:begin_keybind_widget_capture(flag: any)
     local lib = resolve_library(self)
-    if lib._choosing_keybind or not UserInputService.KeyboardEnabled or not lib._keybind_entries or not lib._keybind_entries[flag] then
+    if not lib._keybind_entries or not lib._keybind_entries[flag] then
         return
     end
+
+    local connection_key = "keybind_widget_capture_" .. tostring(flag)
+    local previous_key = Library:get_keybind_name(flag)
+
+    if lib._choosing_keybind then
+        lib._choosing_keybind = false
+        Library._choosing_keybind = false
+        Connections:disconnect(connection_key)
+        local entry = lib._keybind_entries[flag]
+        if entry and entry.on_changed then
+            pcall(entry.on_changed, previous_key, false)
+        end
+        lib:update_keybind_list()
+        return
+    end
+
     lib._choosing_keybind = true
     Library._choosing_keybind = true
 
@@ -1977,9 +2117,10 @@ function Library:create_ui()
     KeybindsWidget.Size = UDim2.new(0, 250, 0, 0)
     KeybindsWidget.AutomaticSize = Enum.AutomaticSize.Y
     KeybindsWidget.BorderSizePixel = 0
-    KeybindsWidget.ClipsDescendants = true
+    KeybindsWidget.ClipsDescendants = false
     KeybindsWidget.Visible = false
     KeybindsWidget.Active = true
+    KeybindsWidget.ZIndex = 50
     KeybindsWidget.Parent = Allusive
 
     local KBWidgetCorner = Instance.new("UICorner")
@@ -2007,6 +2148,7 @@ function Library:create_ui()
     KBHeader.BackgroundTransparency = 1
     KBHeader.LayoutOrder = 0
     KBHeader.Size = UDim2.new(1, 0, 0, 32)
+    KBHeader.ZIndex = 50
     KBHeader.Parent = KeybindsWidget
 
     local KBIcon = Instance.new("ImageLabel")
@@ -2016,6 +2158,7 @@ function Library:create_ui()
     KBIcon.Size = UDim2.new(0, 14, 0, 14)
     KBIcon.Image = "rbxassetid://10723416765"
     KBIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    KBIcon.ZIndex = 51
     KBIcon.Parent = KBHeader
 
     local KBTitle = Instance.new("TextLabel")
@@ -2026,6 +2169,7 @@ function Library:create_ui()
     KBTitle.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
     KBTitle.TextSize = 13
     KBTitle.TextXAlignment = Enum.TextXAlignment.Center
+    KBTitle.ZIndex = 51
     KBTitle.Parent = KBHeader
 
     local KBDivider = Instance.new("Frame")
@@ -2033,6 +2177,7 @@ function Library:create_ui()
     KBDivider.BorderSizePixel = 0
     KBDivider.Position = UDim2.new(0, 0, 1, -1)
     KBDivider.Size = UDim2.new(1, 0, 0, 1)
+    KBDivider.ZIndex = 51
     KBDivider.Parent = KBHeader
 
     local KBContent = Instance.new("Frame")
@@ -2040,6 +2185,7 @@ function Library:create_ui()
     KBContent.LayoutOrder = 1
     KBContent.AutomaticSize = Enum.AutomaticSize.Y
     KBContent.Size = UDim2.new(1, 0, 0, 0)
+    KBContent.ZIndex = 50
     KBContent.Parent = KeybindsWidget
 
     local KBList = Instance.new("UIListLayout")
@@ -2101,6 +2247,19 @@ function Library:create_ui()
         self._keybind_list_visible = true
         Library._keybind_list_visible = true
     end
+
+    local toggle_flag = "ui_toggle_key"
+    local initial_toggle_key = self._toggle_keybind or Enum.KeyCode.Insert
+    local initial_toggle_name = typeof(initial_toggle_key) == "EnumItem" and initial_toggle_key.Name or tostring(initial_toggle_key):gsub("Enum%.KeyCode%.", "")
+    self._config = self._config or {}
+    self._config._keybinds = self._config._keybinds or {}
+    if not self._config._keybinds[toggle_flag] then
+        self._config._keybinds[toggle_flag] = "Enum.KeyCode." .. initial_toggle_name
+    end
+    self:register_keybind_entry(toggle_flag, "UI Toggle", function()
+        return self._ui_open == true
+    end, nil, true)
+    self:update_keybind_entry(toggle_flag)
     self:update_keybind_list()
     local active_drag_input = nil
     local function on_drag(input: InputObject, process: boolean)
@@ -2199,6 +2358,7 @@ function Library:create_ui()
                 end
             end)
         end
+        self:update_keybind_entry("ui_toggle_key")
     end
     function self:load()
         if self._ui_loaded then
@@ -2711,6 +2871,21 @@ function Library:create_ui()
         UIPadding.PaddingRight = UDim.new(0, 2)
         UIPadding.Parent = RightSection
         self._tab += 1
+        self._tabs_list = self._tabs_list or {}
+        self._tabs_by_name = self._tabs_by_name or {}
+        local tab_info = {
+            title = title,
+            index = self._tab,
+            tab_btn = Tab,
+            left = LeftSection,
+            right = RightSection,
+            manager = TabManager,
+        }
+        table.insert(self._tabs_list, tab_info)
+        self._tabs_by_name[string.lower(title)] = tab_info
+        Library._tabs_list = self._tabs_list
+        Library._tabs_by_name = self._tabs_by_name
+
         if first_tab then
             self:update_tabs(Tab)
             self:update_sections(LeftSection, RightSection)
@@ -2883,6 +3058,7 @@ function Library:create_ui()
             Options.AutomaticSize = Enum.AutomaticSize.Y
             Options.BorderSizePixel = 0
             Options.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            Options.Visible = false
             Options.Parent = Module
             local UIPadding = Instance.new('UIPadding')
             UIPadding.PaddingTop = UDim.new(0, 8)
@@ -2893,36 +3069,46 @@ function Library:create_ui()
             UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
             UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
             UIListLayout.Parent = Options
-            local function get_expanded_height(extra_delta: number?)
-                local list_layout = Options:FindFirstChildWhichIsA("UIListLayout")
-                local layout_content_h = (list_layout and list_layout.AbsoluteContentSize.Y > 0) and (list_layout.AbsoluteContentSize.Y + 16) or 0
-                local fallback_h = 16
+            local function get_expanded_height(): number
+                local total_h = 16
                 local visible_count = 0
+                local lib = resolve_library(Library)
+                local scale = (lib and lib._ui_scale and lib._ui_scale > 0) and lib._ui_scale or 1
+
                 for _, child in ipairs(Options:GetChildren()) do
                     if child:IsA("GuiObject") and child.Visible and child.Name ~= "UIPadding" then
-                        local child_h = child.AbsoluteSize.Y > 0 and child.AbsoluteSize.Y or child.Size.Y.Offset
-                        if child_h <= 0 then
-                            child_h = 24
+                        local child_h = 0
+                        if child.Name == "Dropdown" then
+                            local target_attr = child:GetAttribute("TargetHeight")
+                            if target_attr and target_attr > 0 then
+                                child_h = target_attr
+                            else
+                                child_h = child.Size.Y.Offset > 0 and child.Size.Y.Offset or 42
+                            end
+                        elseif child.Name == "Paragraph" or child.Name == "Text" then
+                            local custom_scale = child:GetAttribute("CustomScale") or (child.Name == "Paragraph" and 70 or 50)
+                            local rendered_h = (child.AbsoluteSize.Y > 0 and scale > 0) and math.round(child.AbsoluteSize.Y / scale) or 0
+                            child_h = math.max(custom_scale, rendered_h)
+                        else
+                            child_h = child.Size.Y.Offset > 0 and child.Size.Y.Offset or 24
                         end
-                        fallback_h += child_h + 8
+                        total_h += child_h
                         visible_count += 1
                     end
                 end
-                if visible_count > 0 then
-                    fallback_h -= 8
+
+                if visible_count > 1 then
+                    total_h += (visible_count - 1) * 8
                 end
-                local content_h = math.max(layout_content_h, fallback_h)
-                if extra_delta then
-                    content_h = math.max(16, content_h + extra_delta)
-                end
-                return 93 + content_h + 6
+
+                return 93 + total_h
             end
             local function sync_module_size(animate)
                 if not ModuleManager._state then
                     return
                 end
                 local target_h = get_expanded_height()
-                if math.abs(Module.Size.Y.Offset - target_h) > 1 then
+                if math.abs(Module.Size.Y.Offset - target_h) > 0 then
                     if animate then
                         TweenService:Create(Module, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                             Size = UDim2.fromOffset(240, target_h)
@@ -2933,7 +3119,20 @@ function Library:create_ui()
                 end
             end
             ModuleManager.sync_size = sync_module_size
-            Options.ChildAdded:Connect(function()
+            local function hook_child_signals(child)
+                if child:IsA("GuiObject") and child.Name ~= "UIPadding" then
+                    child:GetPropertyChangedSignal("Visible"):Connect(function()
+                        if ModuleManager._state then
+                            sync_module_size(false)
+                        end
+                    end)
+                end
+            end
+            for _, child in ipairs(Options:GetChildren()) do
+                hook_child_signals(child)
+            end
+            Options.ChildAdded:Connect(function(child)
+                hook_child_signals(child)
                 task.defer(function()
                     if ModuleManager._state then
                         sync_module_size(false)
@@ -2946,19 +3145,6 @@ function Library:create_ui()
                         sync_module_size(false)
                     end
                 end)
-            end)
-            local options_layout = Options:FindFirstChildWhichIsA("UIListLayout")
-            if options_layout then
-                options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                    if ModuleManager._state then
-                        sync_module_size(false)
-                    end
-                end)
-            end
-            Options:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
-                if ModuleManager._state then
-                    sync_module_size(false)
-                end
             end)
             function ModuleManager:change_state(state: boolean, opts: any)
                 opts = opts or {}
@@ -2982,10 +3168,22 @@ function Library:create_ui()
                 local circle_color = self._state and Color3.fromRGB(18, 18, 18) or Color3.fromRGB(180, 180, 180)
                 local circle_position = self._state and UDim2.new(1, -15, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
 
+                if self._state then
+                    Options.Visible = true
+                end
+
                 if opts.animate ~= false then
-                    TweenService:Create(Module, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    local tween = TweenService:Create(Module, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         Size = module_size
-                    }):Play()
+                    })
+                    tween:Play()
+                    if not self._state then
+                        tween.Completed:Connect(function()
+                            if not self._state then
+                                Options.Visible = false
+                            end
+                        end)
+                    end
                     TweenService:Create(Toggle, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                         BackgroundColor3 = toggle_color
                     }):Play()
@@ -2995,6 +3193,9 @@ function Library:create_ui()
                     }):Play()
                 else
                     Module.Size = module_size
+                    if not self._state then
+                        Options.Visible = false
+                    end
                     Toggle.BackgroundColor3 = toggle_color
                     Circle.BackgroundColor3 = circle_color
                     Circle.Position = circle_position
@@ -3040,12 +3241,13 @@ function Library:create_ui()
                 local Paragraph = Instance.new('Frame')
                 Paragraph.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
                 Paragraph.BackgroundTransparency = 0
-                Paragraph.Size = UDim2.new(0, 208, 0, 30) 
+                Paragraph.Size = UDim2.new(0, 208, 0, settings.customScale or 70) 
                 Paragraph.BorderSizePixel = 0
                 Paragraph.Name = "Paragraph"
                 Paragraph.AutomaticSize = Enum.AutomaticSize.Y 
                 Paragraph.Parent = Options
                 Paragraph.LayoutOrder = LayoutOrderModule;
+                Paragraph:SetAttribute("CustomScale", settings.customScale or 70)
                 local UICorner = Instance.new('UICorner')
                 UICorner.CornerRadius = UDim.new(0, 6)
                 UICorner.Parent = Paragraph
@@ -3119,12 +3321,13 @@ function Library:create_ui()
                 local TextFrame = Instance.new('Frame')
                 TextFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
                 TextFrame.BackgroundTransparency = 0
-                TextFrame.Size = UDim2.new(0, 208, 0, settings.CustomYSize or 30) 
+                TextFrame.Size = UDim2.new(0, 208, 0, settings.customScale or settings.CustomYSize or 50) 
                 TextFrame.BorderSizePixel = 0
                 TextFrame.Name = "Text"
                 TextFrame.AutomaticSize = Enum.AutomaticSize.Y 
                 TextFrame.Parent = Options
                 TextFrame.LayoutOrder = LayoutOrderModule
+                TextFrame:SetAttribute("CustomScale", settings.customScale or settings.CustomYSize or 50)
                 local UICorner = Instance.new('UICorner')
                 UICorner.CornerRadius = UDim.new(0, 6)
                 UICorner.Parent = TextFrame
@@ -3180,6 +3383,11 @@ function Library:create_ui()
                     else
                         Body.Text = new_settings.richtext or "<font color='rgb(255,255,255)'>Privot</font> user" 
                     end
+                    task.defer(function()
+                        if ModuleManager._state then
+                            sync_module_size(false)
+                        end
+                    end)
                 end;
                 if ModuleManager._state then
                     sync_module_size(false)
@@ -3311,11 +3519,15 @@ function Library:create_ui()
                 return TextboxManager
             end   
             local function begin_component_keybind_capture(flag: any, update_display: any)
-                if Library._choosing_keybind or not UserInputService.KeyboardEnabled then
-                    return
-                end
                 local connection_key = "component_keybind_capture_" .. tostring(flag)
                 local previous_keybind = Library:get_keybind_name(flag)
+                if Library._choosing_keybind then
+                    Library._choosing_keybind = false
+                    Connections:disconnect(connection_key)
+                    update_display(previous_keybind, false)
+                    Library:update_keybind_entry(flag)
+                    return
+                end
                 Library._choosing_keybind = true
                 update_display(nil, true)
                 Connections:disconnect(connection_key)
@@ -3373,7 +3585,20 @@ function Library:create_ui()
                     end
                 end)
             end
-            function ModuleManager:create_checkbox(settings: any)
+            function ModuleManager:create_checkbox(arg1: any, arg2: any)
+                local settings = {}
+                if type(arg1) == "string" then
+                    if type(arg2) == "table" then
+                        for k, v in pairs(arg2) do settings[k] = v end
+                    end
+                    settings.flag = arg1
+                elseif type(arg1) == "table" then
+                    for k, v in pairs(arg1) do settings[k] = v end
+                end
+                settings.title = settings.title or settings.Title or "Feature"
+                settings.default = (settings.default ~= nil and settings.default) or (settings.Default ~= nil and settings.Default) or false
+                settings.callback = settings.callback or settings.Callback
+
                 LayoutOrderModule = LayoutOrderModule + 1
                 local default_state = settings.default == true
                 local internal_flag = Library:_is_internal_flag(settings.flag)
@@ -3429,7 +3654,7 @@ function Library:create_ui()
                 KeybindBox.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 KeybindBox.BorderSizePixel = 0
                 KeybindBox.Parent = Checkbox
-                KeybindBox.Visible = UserInputService.KeyboardEnabled
+                KeybindBox.Visible = true
                 local KeybindCorner = Instance.new("UICorner")
                 KeybindCorner.CornerRadius = UDim.new(0, 5)
                 KeybindCorner.Parent = KeybindBox
@@ -4087,7 +4312,22 @@ function Library:create_ui()
                 end
                 return SliderManager
             end
-            function ModuleManager:create_dropdown(settings: any)
+            function ModuleManager:create_dropdown(arg1: any, arg2: any)
+                local settings = {}
+                if type(arg1) == "string" then
+                    if type(arg2) == "table" then
+                        for k, v in pairs(arg2) do settings[k] = v end
+                    end
+                    settings.flag = arg1
+                elseif type(arg1) == "table" then
+                    for k, v in pairs(arg1) do settings[k] = v end
+                end
+                settings.title = settings.title or settings.Title or "Dropdown"
+                settings.options = settings.options or settings.Values or settings.values or settings.Options
+                settings.multi_dropdown = (settings.multi_dropdown == true) or (settings.Multi == true) or (settings.multi == true)
+                settings.default = (settings.default ~= nil and settings.default) or (settings.Default ~= nil and settings.Default) or settings.value or settings.Value
+                settings.callback = settings.callback or settings.Callback
+
                 if not settings.Order then
                     LayoutOrderModule = LayoutOrderModule + 1
                 end
@@ -4194,6 +4434,7 @@ function Library:create_ui()
                 Dropdown.Size = UDim2.new(0, 208, 0, 42)
                 Dropdown.BorderSizePixel = 0
                 Dropdown.Parent = Options
+                Dropdown:SetAttribute("TargetHeight", 42)
                 if not settings.Order then
                     Dropdown.LayoutOrder = LayoutOrderModule;
                 else
@@ -4353,8 +4594,13 @@ function Library:create_ui()
                     if (changed or config_changed) and opts.persist ~= false and persistent then
                         Config:save(game.GameId, Library._config)
                     end
-                    if changed and opts.callback ~= false and settings.callback then
-                        settings.callback(settings.multi_dropdown and copy_array(next_value) or next_value)
+                    if changed and opts.callback ~= false then
+                        if settings.callback then
+                            settings.callback(settings.multi_dropdown and copy_array(next_value) or next_value)
+                        end
+                        if self._on_changed_cb then
+                            pcall(self._on_changed_cb, settings.multi_dropdown and copy_array(next_value) or next_value)
+                        end
                     end
                     return changed
                 end
@@ -4364,18 +4610,24 @@ function Library:create_ui()
                         Library:close_all_dropdowns(self)
                     end
                     self._state = not self._state
-                    local delta = self._state and self._size or -self._size
-                    local target_h = get_expanded_height(delta)
+                    local target_dropdown_h = self._state and (42 + self._size) or 42
+                    local target_box_h = self._state and (24 + self._size) or 24
+                    Dropdown:SetAttribute("TargetHeight", target_dropdown_h)
+                    local target_h = get_expanded_height()
                     local module_size = ModuleManager._state and UDim2.fromOffset(240, target_h) or UDim2.fromOffset(240, 93)
-                    local dropdown_size = UDim2.fromOffset(208, self._state and (42 + self._size) or 42)
-                    local box_size = UDim2.new(1, 0, 0, self._state and (24 + self._size) or 24)
+                    local dropdown_size = UDim2.fromOffset(208, target_dropdown_h)
+                    local box_size = UDim2.new(1, 0, 0, target_box_h)
                     local arrow_rotation = self._state and 180 or 0
                     if opts.animate ~= false then
                         local tween_info = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
                         if ModuleManager._state then
                             TweenService:Create(Module, tween_info, { Size = module_size }):Play()
                         end
-                        TweenService:Create(Dropdown, tween_info, { Size = dropdown_size }):Play()
+                        local dd_tween = TweenService:Create(Dropdown, tween_info, { Size = dropdown_size })
+                        dd_tween:Play()
+                        dd_tween.Completed:Connect(function()
+                            Dropdown.Size = dropdown_size
+                        end)
                         TweenService:Create(Box, tween_info, { Size = box_size }):Play()
                         TweenService:Create(Arrow, tween_info, { Rotation = arrow_rotation }):Play()
                     else
@@ -4527,12 +4779,33 @@ function Library:create_ui()
                         DropdownManager:update(value, opts)
                     end
                 end
-                if ModuleManager._state then
-                    sync_module_size(false)
+                function DropdownManager:OnChanged(cb: any)
+                    self._on_changed_cb = cb
+                    if cb and self._value ~= nil then
+                        pcall(cb, settings.multi_dropdown and copy_array(self._value) or self._value)
+                    end
+                    return self
                 end
+                function DropdownManager:Set(value: any)
+                    return self:update(value)
+                end
+                DropdownManager.SetValue = DropdownManager.Set
                 return DropdownManager
             end
-            function ModuleManager:create_feature(settings)
+            function ModuleManager:create_feature(arg1: any, arg2: any)
+                local settings = {}
+                if type(arg1) == "string" then
+                    if type(arg2) == "table" then
+                        for k, v in pairs(arg2) do settings[k] = v end
+                    end
+                    settings.flag = arg1
+                elseif type(arg1) == "table" then
+                    for k, v in pairs(arg1) do settings[k] = v end
+                end
+                settings.title = settings.title or settings.Title or "Feature"
+                settings.default = (settings.default ~= nil and settings.default) or (settings.Default ~= nil and settings.Default) or false
+                settings.callback = settings.callback or settings.Callback
+                settings.button_callback = settings.button_callback or settings.ButtonCallback or settings.callback or settings.Callback
                 LayoutOrderModule = LayoutOrderModule + 1
                 if self._size == 0 then
                     self._size = 17
@@ -4632,10 +4905,7 @@ function Library:create_ui()
                 KeybindBox.LayoutOrder = 1
                 KeybindBox.BorderSizePixel = 0
                 KeybindBox.Parent = RightContainer
-                KeybindBox.Visible = UserInputService.KeyboardEnabled
-                if not UserInputService.KeyboardEnabled then
-                    KeybindBox.Size = UDim2.fromOffset(0, 20)
-                end
+                KeybindBox.Visible = true
                 local KeybindCorner = Instance.new("UICorner", KeybindBox)
                 KeybindCorner.CornerRadius = UDim.new(0, 5)
                 local UIStroke = Instance.new("UIStroke", KeybindBox)
@@ -4847,8 +5117,140 @@ function Library:create_ui()
                 end
                 return FeatureContainer
             end                    
+            ModuleManager.create_toggle = ModuleManager.create_checkbox
+            ModuleManager.AddToggle = ModuleManager.create_checkbox
+            ModuleManager.add_toggle = ModuleManager.create_checkbox
+            ModuleManager.AddCheckbox = ModuleManager.create_checkbox
+            ModuleManager.add_checkbox = ModuleManager.create_checkbox
+
+            ModuleManager.AddDropdown = ModuleManager.create_dropdown
+            ModuleManager.add_dropdown = ModuleManager.create_dropdown
+
+            ModuleManager.AddSlider = ModuleManager.create_slider
+            ModuleManager.add_slider = ModuleManager.create_slider
+
+            ModuleManager.AddKeybind = ModuleManager.create_keybind
+            ModuleManager.add_keybind = ModuleManager.create_keybind
+
+            ModuleManager.AddTextbox = ModuleManager.create_textbox
+            ModuleManager.add_textbox = ModuleManager.create_textbox
+
+            ModuleManager.create_button = function(self_mod, a1, a2)
+                local s = {}
+                if type(a1) == "string" then
+                    if type(a2) == "table" then
+                        for k, v in pairs(a2) do s[k] = v end
+                    elseif type(a2) == "function" then
+                        s.callback = a2
+                    end
+                    s.title = a1
+                elseif type(a1) == "table" then
+                    for k, v in pairs(a1) do s[k] = v end
+                end
+                s.disablecheck = true
+                s.flag = s.flag or s.title or ("Button_" .. tostring(LayoutOrderModule + 1))
+                s.button_callback = s.callback or s.button_callback or s.Callback
+                return self_mod:create_feature(s)
+            end
+            ModuleManager.AddButton = ModuleManager.create_button
+            ModuleManager.add_button = ModuleManager.create_button
+
+            ModuleManager.AddFeature = ModuleManager.create_feature
+            ModuleManager.add_feature = ModuleManager.create_feature
+
+            ModuleManager.AddDivider = ModuleManager.create_divider
+            ModuleManager.add_divider = ModuleManager.create_divider
+
+            ModuleManager.AddParagraph = ModuleManager.create_paragraph
+            ModuleManager.add_paragraph = ModuleManager.create_paragraph
+
+            ModuleManager.AddText = ModuleManager.create_text
+            ModuleManager.add_text = ModuleManager.create_text
+
             return ModuleManager
         end
+
+        local self_lib = self
+        function TabManager:select()
+            self_lib:update_tabs(Tab)
+            self_lib:update_sections(LeftSection, RightSection)
+        end
+
+        function TabManager:_get_default_module(section)
+            section = section or 'left'
+            local key = '_default_module_' .. tostring(section)
+            if not self[key] then
+                self[key] = self:create_module({
+                    title = 'General',
+                    section = section
+                })
+            end
+            return self[key]
+        end
+
+        function TabManager:create_keybind(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_keybind(arg1, arg2)
+        end
+        TabManager.AddKeybind = TabManager.create_keybind
+        TabManager.add_keybind = TabManager.create_keybind
+
+        function TabManager:create_toggle(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_checkbox(arg1, arg2)
+        end
+        TabManager.create_checkbox = TabManager.create_toggle
+        TabManager.AddToggle = TabManager.create_toggle
+        TabManager.add_toggle = TabManager.create_toggle
+        TabManager.AddCheckbox = TabManager.create_toggle
+        TabManager.add_checkbox = TabManager.create_toggle
+
+        function TabManager:create_slider(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_slider(arg1, arg2)
+        end
+        TabManager.AddSlider = TabManager.create_slider
+        TabManager.add_slider = TabManager.create_slider
+
+        function TabManager:create_dropdown(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_dropdown(arg1, arg2)
+        end
+        TabManager.AddDropdown = TabManager.create_dropdown
+        TabManager.add_dropdown = TabManager.create_dropdown
+
+        function TabManager:create_textbox(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_textbox(arg1, arg2)
+        end
+        TabManager.AddTextbox = TabManager.create_textbox
+        TabManager.add_textbox = TabManager.create_textbox
+
+        function TabManager:create_button(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_button(arg1, arg2)
+        end
+        TabManager.AddButton = TabManager.create_button
+        TabManager.add_button = TabManager.create_button
+
+        function TabManager:create_feature(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_feature(arg1, arg2)
+        end
+        TabManager.AddFeature = TabManager.create_feature
+        TabManager.add_feature = TabManager.create_feature
+
+        function TabManager:create_divider(arg1: any)
+            return self:_get_default_module('left'):create_divider(arg1)
+        end
+        TabManager.AddDivider = TabManager.create_divider
+        TabManager.add_divider = TabManager.create_divider
+
+        function TabManager:create_paragraph(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_paragraph(arg1, arg2)
+        end
+        TabManager.AddParagraph = TabManager.create_paragraph
+        TabManager.add_paragraph = TabManager.create_paragraph
+
+        function TabManager:create_text(arg1: any, arg2: any)
+            return self:_get_default_module('left'):create_text(arg1, arg2)
+        end
+        TabManager.AddText = TabManager.create_text
+        TabManager.add_text = TabManager.create_text
+
         return TabManager
     end
     Connections:disconnect('library_visiblity')
