@@ -1,4 +1,4 @@
- getgenv().GG = getgenv().GG or {}
+  getgenv().GG = getgenv().GG or {}
 GG.SelectedLanguage = GG.SelectedLanguage or "en"
 local SelectedLanguage = GG.SelectedLanguage
 local cloneref = cloneref or function(instance)
@@ -25,7 +25,34 @@ local Lighting = cloneref(game:GetService('Lighting'))
 local Players = cloneref(game:GetService('Players'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
-local mouse = Players.LocalPlayer:GetMouse()
+local mouse = nil
+pcall(function()
+    if Players.LocalPlayer then
+        mouse = Players.LocalPlayer:GetMouse()
+    end
+end)
+if not mouse then
+    mouse = setmetatable({}, {
+        __index = function(_, key)
+            local ok, loc = pcall(function()
+                return UserInputService:GetMouseLocation()
+            end)
+            local pos = (ok and loc) or Vector2.zero
+            if key == "X" or key == "x" then
+                return pos.X
+            elseif key == "Y" or key == "y" then
+                return pos.Y
+            elseif key == "Hit" or key == "hit" then
+                return CFrame.new(pos.X, pos.Y, 0)
+            elseif key == "Target" or key == "target" then
+                return nil
+            elseif key == "UnitRay" or key == "unitRay" then
+                return Ray.new(Vector3.zero, Vector3.zero)
+            end
+            return nil
+        end
+    })
+end
 for _, gui in pairs((gethui and gethui():GetChildren()) or CoreGui:GetChildren()) do
     if gui:FindFirstChild('PrivotSignature') or gui:FindFirstChild('RoniSignature') then
         Debris:AddItem(gui, 0)
@@ -81,7 +108,10 @@ Util.random_string = function(self: any)
 end
 Util.is_mouse_over_frame = function(self: any, frame: Frame)
     local abs_pos, abs_size = frame.AbsolutePosition, frame.AbsoluteSize
-    if mouse.X >= abs_pos.X and mouse.X <= abs_pos.X + abs_size.X and mouse.Y >= abs_pos.Y and mouse.Y <= abs_pos.Y + abs_size.Y then
+    local ok, loc = pcall(function() return UserInputService:GetMouseLocation() end)
+    local m_x = (ok and loc and loc.X) or (mouse and mouse.X) or 0
+    local m_y = (ok and loc and loc.Y) or (mouse and mouse.Y) or 0
+    if m_x >= abs_pos.X and m_x <= abs_pos.X + abs_size.X and m_y >= abs_pos.Y and m_y <= abs_pos.Y + abs_size.Y then
         return true
     end
     return false
@@ -1127,6 +1157,9 @@ function Library:set_keybind(flag: any, key_code: any)
     if not flag then
         return nil
     end
+    if flag == "ui_toggle_key" or flag == "minimize_bind" or flag == "minimize" then
+        return self:set_toggle_keybind(key_code)
+    end
     local lib = resolve_library(self)
     self._config = self._config or {}
     self._config._keybinds = self._config._keybinds or {}
@@ -1168,13 +1201,117 @@ function Library:set_keybind(flag: any, key_code: any)
     end
 
     if previous ~= key_name then self:_notify_keybind(flag) end
+
     lib:update_keybind_list()
     return key_name
 end
-function Library:set_toggle_keybind(key_code: any)
-    self._toggle_keybind = key_code
+function Library:get_toggle_keycode()
+    local lib = resolve_library(self)
+    local direct = (lib and lib._toggle_keybind) or Library._toggle_keybind
+    if direct then
+        if typeof(direct) == "EnumItem" and direct.EnumType == Enum.KeyCode and direct ~= Enum.KeyCode.Unknown then
+            return direct
+        elseif type(direct) == "string" then
+            local canon = resolve_canonical_key_name(direct)
+            if canon then
+                local ok, kc = pcall(function() return Enum.KeyCode[canon] end)
+                if ok and kc and kc ~= Enum.KeyCode.Unknown then return kc end
+            end
+        end
+    end
+
+    for _, flag in ipairs({"ui_toggle_key", "minimize_bind", "minimize"}) do
+        local kn = Library:get_keybind_name(flag)
+        if kn then
+            local ok, kc = pcall(function() return Enum.KeyCode[kn] end)
+            if ok and kc and kc ~= Enum.KeyCode.Unknown then
+                return kc
+            end
+        end
+    end
+
+    local cfg = (lib and lib._config) or Library._config
+    if cfg and cfg._flags and cfg._flags["ui_toggle_key"] then
+        local val = cfg._flags["ui_toggle_key"]
+        if type(val) == "string" then
+            local ok, kc = pcall(function() return Enum.KeyCode[val] end)
+            if ok and kc and kc ~= Enum.KeyCode.Unknown then
+                return kc
+            end
+        end
+    end
+
+    return Enum.KeyCode.Insert
 end
+function Library:set_toggle_keybind(key_code: any)
+    local lib = resolve_library(self)
+    local resolved_enum = nil
+    if typeof(key_code) == "EnumItem" and key_code.EnumType == Enum.KeyCode then
+        resolved_enum = key_code
+    elseif type(key_code) == "string" then
+        local canon = resolve_canonical_key_name(key_code)
+        if canon then
+            pcall(function()
+                resolved_enum = Enum.KeyCode[canon]
+            end)
+        end
+    end
+
+    if not resolved_enum or resolved_enum == Enum.KeyCode.Unknown then
+        resolved_enum = Enum.KeyCode.Insert
+    end
+
+    self._toggle_keybind = resolved_enum
+    if lib then lib._toggle_keybind = resolved_enum end
+    Library._toggle_keybind = resolved_enum
+
+    local key_name = resolved_enum.Name
+    local full_name = "Enum.KeyCode." .. key_name
+
+    local toggle_flags = {"ui_toggle_key", "minimize_bind", "minimize"}
+    for _, f in ipairs(toggle_flags) do
+        if self._config and self._config._flags then self._config._flags[f] = key_name end
+        if lib and lib._config and lib._config._flags then lib._config._flags[f] = key_name end
+        if Library._config and Library._config._flags then Library._config._flags[f] = key_name end
+
+        if self._config and self._config._keybinds then self._config._keybinds[f] = full_name end
+        if lib and lib._config and lib._config._keybinds then lib._config._keybinds[f] = full_name end
+        if Library._config and Library._config._keybinds then Library._config._keybinds[f] = full_name end
+
+        if self._keybind_entries and self._keybind_entries[f] then
+            self._keybind_entries[f].key_name = key_name
+        end
+        if lib and lib._keybind_entries and lib._keybind_entries[f] then
+            lib._keybind_entries[f].key_name = key_name
+        end
+        if Library._keybind_entries and Library._keybind_entries[f] then
+            Library._keybind_entries[f].key_name = key_name
+        end
+
+        self:_notify_keybind(f)
+        if lib and lib ~= self then lib:_notify_keybind(f) end
+        if Library and Library ~= self and Library ~= lib then Library:_notify_keybind(f) end
+    end
+
+    if self._config and self._config._flags then
+        self._config._flags["ui_toggle_key"] = key_name
+    end
+    if lib and lib._config and lib._config._flags then
+        lib._config._flags["ui_toggle_key"] = key_name
+    end
+    if Library._config and Library._config._flags then
+        Library._config._flags["ui_toggle_key"] = key_name
+    end
+
+    lib:update_keybind_list()
+    return key_name
+end
+local last_toggle_clock = 0
 function Library:Minimize()
+    if os.clock() - last_toggle_clock < 0.15 then
+        return
+    end
+    last_toggle_clock = os.clock()
     local lib = resolve_library(self)
     lib._ui_open = not lib._ui_open
     lib:change_visiblity(lib._ui_open)
@@ -1649,6 +1786,9 @@ function Library:set_clipboard(text: string)
 end
 function Library:clear_keybind(flag: any)
     local lib = resolve_library(self)
+    if flag == "ui_toggle_key" or flag == "minimize_bind" or flag == "minimize" then
+        return self:set_toggle_keybind(Enum.KeyCode.Insert)
+    end
     if lib._config and lib._config._keybinds then
         local had_keybind = self:get_keybind_name(flag) ~= nil
         lib._config._keybinds[flag] = nil
@@ -2249,8 +2389,10 @@ function Library:create_ui()
     end
 
     local toggle_flag = "ui_toggle_key"
-    local initial_toggle_key = self._toggle_keybind or Enum.KeyCode.Insert
-    local initial_toggle_name = typeof(initial_toggle_key) == "EnumItem" and initial_toggle_key.Name or tostring(initial_toggle_key):gsub("Enum%.KeyCode%.", "")
+    local initial_toggle_key = self:get_toggle_keycode()
+    self._toggle_keybind = initial_toggle_key
+    Library._toggle_keybind = initial_toggle_key
+    local initial_toggle_name = initial_toggle_key.Name
     self._config = self._config or {}
     self._config._keybinds = self._config._keybinds or {}
     if not self._config._keybinds[toggle_flag] then
@@ -2258,7 +2400,15 @@ function Library:create_ui()
     end
     self:register_keybind_entry(toggle_flag, "UI Toggle", function()
         return self._ui_open == true
-    end, nil, true)
+    end, function(new_key, is_picking)
+        if not is_picking and new_key and new_key ~= "..." then
+            local ok, kc = pcall(function() return Enum.KeyCode[new_key] end)
+            if ok and kc then
+                self:set_toggle_keybind(kc)
+                Config:save(game.GameId, self._config)
+            end
+        end
+    end, true)
     self:update_keybind_entry(toggle_flag)
     self:update_keybind_list()
     local active_drag_input = nil
@@ -2598,20 +2748,32 @@ function Library:create_ui()
             end
         })
         Module:create_divider({ title = 'UI Settings', showtopic = true })
-        Module:create_dropdown({
+        local initial_selected_key = (self:get_toggle_keycode()).Name
+        local toggle_dd = Module:create_dropdown({
             title = 'Toggle Key',
             flag = 'ui_toggle_key',
             options = {'Insert', 'Home', 'End', 'Delete', 'RightShift', 'LeftAlt', 'RightAlt', 'RightControl', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9'},
-            default = 'Insert',
+            default = initial_selected_key,
             persist = true,
             export = false,
             callback = function(selected)
                 local ok, keyCode = pcall(function() return Enum.KeyCode[selected] end)
                 if ok and keyCode then
-                    self._toggle_keybind = keyCode
+                    self:set_toggle_keybind(keyCode)
+                    Config:save(game.GameId, self._config)
                 end
             end
         })
+        local function sync_toggle_dropdown(key_name)
+            if key_name and toggle_dd and toggle_dd.update then
+                pcall(function()
+                    toggle_dd:update(key_name, { persist = false, callback = false })
+                end)
+            end
+        end
+        Library:register_keybind_listener('ui_toggle_key', sync_toggle_dropdown)
+        Library:register_keybind_listener('minimize_bind', sync_toggle_dropdown)
+        Library:register_keybind_listener('minimize', sync_toggle_dropdown)
         Module:create_feature({
             title = 'Keybinds HUD',
             flag = 'ui_show_keybinds_hud',
@@ -3878,8 +4040,14 @@ function Library:create_ui()
                 local title = settings.title or "Keybind"
                 local default_key = settings.default or Enum.KeyCode.Unknown
 
-                if not Library:get_keybind_name(flag) and default_key and default_key ~= "Unknown" and default_key ~= Enum.KeyCode.Unknown then
-                    Library:set_keybind(flag, default_key)
+                if default_key and default_key ~= "Unknown" and default_key ~= Enum.KeyCode.Unknown then
+                    local is_toggle = (flag == "minimize_bind" or flag == "ui_toggle_key" or flag == "minimize")
+                    if is_toggle and (Library:get_keybind_name("ui_toggle_key") or Library:get_keybind_name("minimize_bind") or Library:get_keybind_name("minimize")) then
+                        local existing_key = Library:get_toggle_keycode()
+                        Library:set_toggle_keybind(existing_key)
+                    elseif not Library:get_keybind_name(flag) then
+                        Library:set_keybind(flag, default_key)
+                    end
                 end
 
                 local Row = Instance.new("Frame")
@@ -3970,7 +4138,9 @@ function Library:create_ui()
                 end)
 
                 local keyPressConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-                    if gameProcessed or Library._choosing_keybind or UserInputService:GetFocusedTextBox() then return end
+                    if Library._choosing_keybind or UserInputService:GetFocusedTextBox() then return end
+                    local is_toggle_flag = (flag == "minimize_bind" or flag == "ui_toggle_key" or flag == "minimize")
+                    if not is_toggle_flag and gameProcessed then return end
                     if input.UserInputType == Enum.UserInputType.Keyboard and Library:keybind_matches(flag, input) then
                         if settings.callback then
                             settings.callback()
@@ -4221,7 +4391,9 @@ function Library:create_ui()
                     return true
                 end
                 function SliderManager:update(input_position: any, opts: any)
-                    local input_x = input_position and input_position.X or mouse.X
+                    local ok_loc, loc = pcall(function() return UserInputService:GetMouseLocation() end)
+                    local default_x = (ok_loc and loc and loc.X) or (mouse and mouse.X) or 0
+                    local input_x = input_position and input_position.X or default_x
                     local absolute_width = math.max(Drag.AbsoluteSize.X, 1)
                     local mouse_position = math.clamp((input_x - Drag.AbsolutePosition.X) / absolute_width, 0, 1)
                     local value = settings.minimum_value + (settings.maximum_value - settings.minimum_value) * mouse_position
@@ -5255,18 +5427,34 @@ function Library:create_ui()
     end
     Connections:disconnect('library_visiblity')
     Connections['library_visiblity'] = UserInputService.InputBegan:Connect(function(input: InputObject, process: boolean)
-        if process or Library._choosing_keybind or UserInputService:GetFocusedTextBox() then
+        if Library._choosing_keybind or UserInputService:GetFocusedTextBox() then
             return
         end
-        if input.KeyCode ~= (self._toggle_keybind or Enum.KeyCode.Insert) then
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then
             return
         end
-        self._ui_open = not self._ui_open
-        self:change_visiblity(self._ui_open)
+
+        local current_toggle = self:get_toggle_keycode()
+        local is_match = false
+
+        if current_toggle and input.KeyCode == current_toggle then
+            is_match = true
+        elseif Library:keybind_matches("ui_toggle_key", input) then
+            is_match = true
+        elseif Library:keybind_matches("minimize_bind", input) then
+            is_match = true
+        elseif Library:keybind_matches("minimize", input) then
+            is_match = true
+        end
+
+        if not is_match then
+            return
+        end
+
+        self:Minimize()
     end)
     self._ui.Container.Handler.Minimize.MouseButton1Click:Connect(function()
-        self._ui_open = not self._ui_open
-        self:change_visiblity(self._ui_open)
+        self:Minimize()
     end)
     Connections:disconnect('mobile_toggle_input_ended')
     Connections:disconnect('mobile_toggle_drag')
