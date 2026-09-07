@@ -1,4 +1,41 @@
-  getgenv().GG = getgenv().GG or {}
+
+--- fixed
+local _new_instance = Instance.new
+local _new_tween_info = TweenInfo.new
+local _new_udim = UDim.new
+local _new_udim2 = UDim2.new
+local _udim2_from_offset = UDim2.fromOffset
+local _new_vector2 = Vector2.new
+local _new_vector3 = Vector3.new
+local _new_color3 = Color3.new
+local _rgb = Color3.fromRGB
+
+local _clamp = math.clamp
+local _floor = math.floor
+local _max = math.max
+local _min = math.min
+local _abs = math.abs
+local _random = math.random
+
+local _clear = table.clear
+local _find = table.find
+local _insert = table.insert
+local _remove = table.remove
+local _concat = table.concat
+
+local _defer = task.defer
+local _delay = task.delay
+local _spawn = task.spawn
+local _wait = task.wait
+
+local _pairs = pairs
+local _ipairs = ipairs
+local _pcall = pcall
+local _tostring = tostring
+local _type = type
+
+local getgenv = getgenv or function() return _G end
+getgenv().GG = getgenv().GG or {}
 GG.SelectedLanguage = GG.SelectedLanguage or "en"
 local SelectedLanguage = GG.SelectedLanguage
 local cloneref = cloneref or function(instance)
@@ -8,16 +45,17 @@ function convertStringToTable(inputString)
     local result = {}
     for value in string.gmatch(inputString, "([^,]+)") do
         local trimmedValue = value:match("^%s*(.-)%s*$")
-        table.insert(result, trimmedValue)
+        _insert(result, trimmedValue)
     end
     return result
 end
 function convertTableToString(inputTable)
-    return table.concat(inputTable, ", ")
+    return _concat(inputTable, ", ")
 end
 local UserInputService = cloneref(game:GetService('UserInputService'))
 local ContentProvider = cloneref(game:GetService('ContentProvider'))
 local TweenService = cloneref(game:GetService('TweenService'))
+local _create_tween = TweenService.Create
 local HttpService = cloneref(game:GetService('HttpService'))
 local TextService = cloneref(game:GetService('TextService'))
 local RunService = cloneref(game:GetService('RunService'))
@@ -25,34 +63,28 @@ local Lighting = cloneref(game:GetService('Lighting'))
 local Players = cloneref(game:GetService('Players'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
-local mouse = nil
-pcall(function()
-    if Players.LocalPlayer then
-        mouse = Players.LocalPlayer:GetMouse()
-    end
-end)
-if not mouse then
-    mouse = setmetatable({}, {
-        __index = function(_, key)
-            local ok, loc = pcall(function()
-                return UserInputService:GetMouseLocation()
-            end)
-            local pos = (ok and loc) or Vector2.zero
-            if key == "X" or key == "x" then
-                return pos.X
-            elseif key == "Y" or key == "y" then
-                return pos.Y
-            elseif key == "Hit" or key == "hit" then
-                return CFrame.new(pos.X, pos.Y, 0)
-            elseif key == "Target" or key == "target" then
-                return nil
-            elseif key == "UnitRay" or key == "unitRay" then
-                return Ray.new(Vector3.zero, Vector3.zero)
-            end
+
+ 
+local mouse = setmetatable({}, {
+    __index = function(_, key)
+        local ok, loc = _pcall(function()
+            return UserInputService:GetMouseLocation()
+        end)
+        local pos = (ok and loc) or Vector2.zero
+        if key == "X" or key == "x" then
+            return pos.X
+        elseif key == "Y" or key == "y" then
+            return pos.Y
+        elseif key == "Hit" or key == "hit" then
+            return CFrame.new(pos.X, pos.Y, 0)
+        elseif key == "Target" or key == "target" then
             return nil
+        elseif key == "UnitRay" or key == "unitRay" then
+            return Ray.new(Vector3.zero, Vector3.zero)
         end
-    })
-end
+        return nil
+    end
+})
 for _, gui in pairs((gethui and gethui():GetChildren()) or CoreGui:GetChildren()) do
     if gui:FindFirstChild('PrivotSignature') or gui:FindFirstChild('RoniSignature') then
         Debris:AddItem(gui, 0)
@@ -108,13 +140,10 @@ Util.random_string = function(self: any)
 end
 Util.is_mouse_over_frame = function(self: any, frame: Frame)
     local abs_pos, abs_size = frame.AbsolutePosition, frame.AbsoluteSize
-    local ok, loc = pcall(function() return UserInputService:GetMouseLocation() end)
-    local m_x = (ok and loc and loc.X) or (mouse and mouse.X) or 0
-    local m_y = (ok and loc and loc.Y) or (mouse and mouse.Y) or 0
-    if m_x >= abs_pos.X and m_x <= abs_pos.X + abs_size.X and m_y >= abs_pos.Y and m_y <= abs_pos.Y + abs_size.Y then
-        return true
-    end
-    return false
+    local ok, loc = _pcall(function() return UserInputService:GetMouseLocation() end)
+    local m_x = (ok and loc and loc.X) or 0
+    local m_y = (ok and loc and loc.Y) or 0
+    return m_x >= abs_pos.X and m_x <= abs_pos.X + abs_size.X and m_y >= abs_pos.Y and m_y <= abs_pos.Y + abs_size.Y
 end
 Util.rounding = function(self: any, num, numDecimalPlaces)
     local mult = 10^(numDecimalPlaces or 0)
@@ -794,7 +823,9 @@ function Library:close_all_dropdowns(except)
 end
 local NotificationContainer = Instance.new("Frame")
 NotificationContainer.Name = "RobloxCoreGuis"
-NotificationContainer.Size = UDim2.new(0, math.min(300, workspace.CurrentCamera.ViewportSize.X - 20), 0, 0)
+local _cam = workspace.CurrentCamera
+local _vp_x = (_cam and _cam.ViewportSize and _cam.ViewportSize.X) or 800
+NotificationContainer.Size = _new_udim2(0, _min(300, _vp_x - 20), 0, 0)
 NotificationContainer.AnchorPoint = Vector2.new(1, 0)
 NotificationContainer.Position = UDim2.new(1, -10, 0, 10)
 NotificationContainer.BackgroundTransparency = 1
@@ -2097,7 +2128,9 @@ function Library:create_ui()
 
     Allusive.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     if RunService:IsStudio() then
-        Allusive.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+        local pgui = nil
+        pcall(function() pgui = Players.LocalPlayer and Players.LocalPlayer:WaitForChild("PlayerGui") end)
+        Allusive.Parent = pgui or CoreGui
     else
         protect_gui(Allusive)
         Allusive.Parent = (gethui and gethui()) or CoreGui
@@ -4391,11 +4424,10 @@ function Library:create_ui()
                     return true
                 end
                 function SliderManager:update(input_position: any, opts: any)
-                    local ok_loc, loc = pcall(function() return UserInputService:GetMouseLocation() end)
-                    local default_x = (ok_loc and loc and loc.X) or (mouse and mouse.X) or 0
-                    local input_x = input_position and input_position.X or default_x
-                    local absolute_width = math.max(Drag.AbsoluteSize.X, 1)
-                    local mouse_position = math.clamp((input_x - Drag.AbsolutePosition.X) / absolute_width, 0, 1)
+                    local ok_loc, loc = _pcall(function() return UserInputService:GetMouseLocation() end)
+                    local input_x = (input_position and input_position.X) or (ok_loc and loc and loc.X) or 0
+                    local absolute_width = _max(Drag.AbsoluteSize.X, 1)
+                    local mouse_position = _clamp((input_x - Drag.AbsolutePosition.X) / absolute_width, 0, 1)
                     local value = settings.minimum_value + (settings.maximum_value - settings.minimum_value) * mouse_position
                     return self:set_percentage(value, opts)
                 end
@@ -5466,7 +5498,9 @@ function Library:create_ui()
         _toggle_gui.IgnoreGuiInset = true
         _toggle_gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         if RunService:IsStudio() then
-            _toggle_gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+            local pgui = nil
+            pcall(function() pgui = Players.LocalPlayer and Players.LocalPlayer:WaitForChild("PlayerGui") end)
+            _toggle_gui.Parent = pgui or CoreGui
         else
             local protect_gui = protect_gui or protectgui or (syn and syn.protect_gui) or function() end
             protect_gui(_toggle_gui)
