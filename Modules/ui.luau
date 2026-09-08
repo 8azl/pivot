@@ -1,5 +1,5 @@
+ --- new
 
---- fixed
 local _new_instance = Instance.new
 local _new_tween_info = TweenInfo.new
 local _new_udim = UDim.new
@@ -64,7 +64,9 @@ local Players = cloneref(game:GetService('Players'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
 
- 
+-- Identity 8 (CoreScript) Safe Mouse Handling (Angeli Architecture)
+-- Never calls Players.LocalPlayer:GetMouse() which throws a permission error under Identity 8.
+-- Instead, all mouse coordinates are queried directly via UserInputService:GetMouseLocation().
 local mouse = setmetatable({}, {
     __index = function(_, key)
         local ok, loc = _pcall(function()
@@ -814,6 +816,12 @@ function Library.new()
     self:create_ui()
     return self
 end
+function Library:create_tab(...)
+    if not Library._current then
+        Library.new()
+    end
+    return Library._current:create_tab(...)
+end
 function Library:close_all_dropdowns(except)
     for _, dropdown in ipairs(self._active_dropdowns or {}) do
         if dropdown ~= except and dropdown._state and not dropdown._destroyed and dropdown.unfold_settings then
@@ -864,6 +872,13 @@ local NOTIFICATION_ACCENTS = {
     info    = Color3.fromRGB(255, 255, 255), 
 }
 function Library.SendNotification(settings)
+    if type(settings) == "string" then
+        settings = { title = "Notification", text = settings, duration = 3 }
+    end
+    settings = settings or {}
+    settings.title = settings.title or settings.Title or "Notification"
+    settings.text = settings.text or settings.Text or settings.content or settings.Content or ""
+    settings.duration = tonumber(settings.duration or settings.Duration or settings.time or settings.Time) or 3
     local dismissed = false
     local Notification = Instance.new("TextButton")
     Notification.Size = UDim2.new(1, 0, 0, 0)
@@ -977,6 +992,22 @@ function Library.SendNotification(settings)
         dismiss()
     end)
 end
+function Library:notify(arg1, arg2, arg3)
+    local s = {}
+    if type(arg1) == "string" then
+        s.title = arg1
+        s.text = tostring(arg2 or "")
+        s.duration = tonumber(arg3) or 3
+    elseif type(arg1) == "table" then
+        s.title = arg1.title or arg1.Title or "Notification"
+        s.text = arg1.text or arg1.Text or arg1.content or arg1.Content or ""
+        s.duration = arg1.duration or arg1.Duration or arg1.time or arg1.Time or 3
+        s.type = arg1.type or arg1.Type or "info"
+    end
+    return Library.SendNotification(s)
+end
+Library.Notify = Library.notify
+Library.send_notification = Library.notify
 function Library:get_screen_scale()
     local viewport_size = workspace.CurrentCamera.ViewportSize
     if self._ui and self._ui.AbsoluteSize.Y > 0 then
@@ -2573,6 +2604,11 @@ function Library:create_ui()
         self._acrylic_blur = AcrylicBlur.new(Container)
         self:create_configs_tab()
     end
+    task.delay(0.5, function()
+        if not self._ui_loaded then
+            self:load()
+        end
+    end)
     function self:create_configs_tab()
         local CFG_ICON = 'rbxassetid://86490552961317'
         local NameFlag = 'privot_cfg_name'
@@ -2912,8 +2948,34 @@ function Library:create_ui()
             end
         end)
     end
+    local TAB_ICON_ALIASES = {
+        info = 'rbxassetid://10723415903',
+        swords = 'rbxassetid://10734975486',
+        sword = 'rbxassetid://10734975486',
+        coins = 'rbxassetid://10709791437',
+        coin = 'rbxassetid://10709791437',
+        eye = 'rbxassetid://10723415205',
+        palette = 'rbxassetid://10709790948',
+        shield = 'rbxassetid://10723420042',
+        settings = 'rbxassetid://10734950309',
+        setting = 'rbxassetid://10734950309',
+        main = 'rbxassetid://107819132007001',
+        general = 'rbxassetid://107819132007001',
+        combat = 'rbxassetid://10734975486',
+        visuals = 'rbxassetid://10723415205',
+        misc = 'rbxassetid://10734950309',
+        farm = 'rbxassetid://10709791437',
+        roles = 'rbxassetid://10723415903',
+        config = 'rbxassetid://10734950309',
+        skins = 'rbxassetid://10709790948',
+    }
     function self:create_tab(title: string, icon: string)
-        local TabManager = {}
+        if type(icon) == "string" and TAB_ICON_ALIASES[icon:lower()] then
+            icon = TAB_ICON_ALIASES[icon:lower()]
+        elseif not icon or icon == "" or (not icon:find("rbxassetid://") and not icon:find("http")) then
+            icon = 'rbxassetid://86490552961317'
+        end
+        local TabManager = { _title = title }
         local LayoutOrder = 0;
         local font_params = Instance.new('GetTextBoundsParams')
         font_params.Text = title
@@ -4244,13 +4306,25 @@ function Library:create_ui()
                 end
                 return true
             end
-            function ModuleManager:create_slider(settings: any)
+            function ModuleManager:create_slider(arg1: any, arg2: any)
+                local settings = {}
+                if type(arg1) == "string" then
+                    if type(arg2) == "table" then
+                        for k, v in pairs(arg2) do settings[k] = v end
+                    end
+                    settings.flag = arg1
+                elseif type(arg1) == "table" then
+                    for k, v in pairs(arg1) do settings[k] = v end
+                end
                 LayoutOrderModule = LayoutOrderModule + 1
-                settings.minimum_value = tonumber(settings.minimum_value) or 0
-                settings.maximum_value = tonumber(settings.maximum_value) or 100
+                settings.minimum_value = tonumber(settings.minimum_value or settings.minimum or settings.min) or 0
+                settings.maximum_value = tonumber(settings.maximum_value or settings.maximum or settings.max) or 100
                 if settings.minimum_value > settings.maximum_value then
                     settings.minimum_value, settings.maximum_value = settings.maximum_value, settings.minimum_value
                 end
+                settings.flag = settings.flag or settings.title or ("Slider_" .. tostring(LayoutOrderModule))
+                settings.title = settings.title or settings.Title or "Slider"
+                settings.callback = settings.callback or settings.Callback
                 local step = settings.round_number and 1 or 0.1
                 local function quantize(value: any)
                     local numeric_value = tonumber(value) or settings.minimum_value
@@ -5351,13 +5425,94 @@ function Library:create_ui()
                 elseif type(a1) == "table" then
                     for k, v in pairs(a1) do s[k] = v end
                 end
-                s.disablecheck = true
-                s.flag = s.flag or s.title or ("Button_" .. tostring(LayoutOrderModule + 1))
-                s.button_callback = s.callback or s.button_callback or s.Callback
-                return self_mod:create_feature(s)
+                s.title = s.title or s.Title or "Button"
+                local cb = s.callback or s.Callback or s.button_callback or function() end
+
+                LayoutOrderModule = LayoutOrderModule + 1
+                if self_mod._size == 0 then
+                    self_mod._size = 17
+                end
+                self_mod._size += 32
+
+                local ButtonFrame = Instance.new("Frame")
+                ButtonFrame.Name = "ButtonRow"
+                ButtonFrame.Size = UDim2.new(0, 208, 0, 26)
+                ButtonFrame.BackgroundTransparency = 1
+                ButtonFrame.LayoutOrder = LayoutOrderModule
+                ButtonFrame.Parent = Options
+
+                local Button = Instance.new("TextButton")
+                Button.Name = "Button"
+                Button.Size = UDim2.new(1, 0, 1, 0)
+                Button.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                Button.Text = s.title
+                Button.TextColor3 = Color3.fromRGB(200, 200, 200)
+                Button.FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
+                Button.TextSize = 11
+                Button.AutoButtonColor = false
+                Button.BorderSizePixel = 0
+                Button.ClipsDescendants = true
+                Button.Parent = ButtonFrame
+
+                local Corner = Instance.new("UICorner")
+                Corner.CornerRadius = UDim.new(0, 6)
+                Corner.Parent = Button
+
+                local Stroke = Instance.new("UIStroke")
+                Stroke.Color = Color3.fromRGB(44, 44, 44)
+                Stroke.Thickness = 1
+                Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                Stroke.Parent = Button
+
+                Button.MouseEnter:Connect(function()
+                    TweenService:Create(Button, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        BackgroundColor3 = Color3.fromRGB(40, 40, 40),
+                        TextColor3 = Color3.fromRGB(255, 255, 255)
+                    }):Play()
+                    TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        Color = Color3.fromRGB(65, 65, 65)
+                    }):Play()
+                end)
+
+                Button.MouseLeave:Connect(function()
+                    TweenService:Create(Button, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        BackgroundColor3 = Color3.fromRGB(32, 32, 32),
+                        TextColor3 = Color3.fromRGB(200, 200, 200)
+                    }):Play()
+                    TweenService:Create(Stroke, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        Color = Color3.fromRGB(44, 44, 44)
+                    }):Play()
+                end)
+
+                Button.MouseButton1Click:Connect(function()
+                    TweenService:Create(Button, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                    }):Play()
+                    task.delay(0.08, function()
+                        TweenService:Create(Button, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                        }):Play()
+                    end)
+                    pcall(cb)
+                end)
+
+                if ModuleManager._state then
+                    sync_module_size(false)
+                end
+
+                return {
+                    SetTitle = function(_, t) Button.Text = t end,
+                    SetCallback = function(_, new_cb) cb = new_cb end,
+                    Fire = function() pcall(cb) end
+                }
             end
             ModuleManager.AddButton = ModuleManager.create_button
             ModuleManager.add_button = ModuleManager.create_button
+            ModuleManager.create_section = function(self_m, sec_title)
+                return self_m:create_divider({ showtopic = true, title = sec_title })
+            end
+            ModuleManager.AddSection = ModuleManager.create_section
+            ModuleManager.add_section = ModuleManager.create_section
 
             ModuleManager.AddFeature = ModuleManager.create_feature
             ModuleManager.add_feature = ModuleManager.create_feature
@@ -5380,26 +5535,52 @@ function Library:create_ui()
             self_lib:update_sections(LeftSection, RightSection)
         end
 
+        self._section_count = 0
+        function TabManager:create_section(name, side)
+            self._section_count = (self._section_count or 0) + 1
+            if not side then
+                side = (self._section_count % 2 == 1) and 'left' or 'right'
+            end
+            local module = self:create_module({
+                title = name or 'Section',
+                section = side
+            })
+            self._current_module = module
+            return module
+        end
+        TabManager.create_group = TabManager.create_section
+        TabManager.AddSection = TabManager.create_section
+        TabManager.add_section = TabManager.create_section
+        TabManager.AddGroup = TabManager.create_section
+        TabManager.add_group = TabManager.create_section
+
         function TabManager:_get_default_module(section)
             section = section or 'left'
             local key = '_default_module_' .. tostring(section)
             if not self[key] then
                 self[key] = self:create_module({
-                    title = 'General',
+                    title = (section == 'left' and (self._title or 'General')) or 'Options',
                     section = section
                 })
             end
             return self[key]
         end
 
+        function TabManager:_get_target_module(section)
+            if self._current_module then
+                return self._current_module
+            end
+            return self:_get_default_module(section or 'left')
+        end
+
         function TabManager:create_keybind(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_keybind(arg1, arg2)
+            return self:_get_target_module('left'):create_keybind(arg1, arg2)
         end
         TabManager.AddKeybind = TabManager.create_keybind
         TabManager.add_keybind = TabManager.create_keybind
 
         function TabManager:create_toggle(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_checkbox(arg1, arg2)
+            return self:_get_target_module('left'):create_checkbox(arg1, arg2)
         end
         TabManager.create_checkbox = TabManager.create_toggle
         TabManager.AddToggle = TabManager.create_toggle
@@ -5408,49 +5589,49 @@ function Library:create_ui()
         TabManager.add_checkbox = TabManager.create_toggle
 
         function TabManager:create_slider(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_slider(arg1, arg2)
+            return self:_get_target_module('left'):create_slider(arg1, arg2)
         end
         TabManager.AddSlider = TabManager.create_slider
         TabManager.add_slider = TabManager.create_slider
 
         function TabManager:create_dropdown(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_dropdown(arg1, arg2)
+            return self:_get_target_module('left'):create_dropdown(arg1, arg2)
         end
         TabManager.AddDropdown = TabManager.create_dropdown
         TabManager.add_dropdown = TabManager.create_dropdown
 
         function TabManager:create_textbox(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_textbox(arg1, arg2)
+            return self:_get_target_module('left'):create_textbox(arg1, arg2)
         end
         TabManager.AddTextbox = TabManager.create_textbox
         TabManager.add_textbox = TabManager.create_textbox
 
         function TabManager:create_button(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_button(arg1, arg2)
+            return self:_get_target_module('left'):create_button(arg1, arg2)
         end
         TabManager.AddButton = TabManager.create_button
         TabManager.add_button = TabManager.create_button
 
         function TabManager:create_feature(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_feature(arg1, arg2)
+            return self:_get_target_module('left'):create_feature(arg1, arg2)
         end
         TabManager.AddFeature = TabManager.create_feature
         TabManager.add_feature = TabManager.create_feature
 
         function TabManager:create_divider(arg1: any)
-            return self:_get_default_module('left'):create_divider(arg1)
+            return self:_get_target_module('left'):create_divider(arg1)
         end
         TabManager.AddDivider = TabManager.create_divider
         TabManager.add_divider = TabManager.create_divider
 
         function TabManager:create_paragraph(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_paragraph(arg1, arg2)
+            return self:_get_target_module('left'):create_paragraph(arg1, arg2)
         end
         TabManager.AddParagraph = TabManager.create_paragraph
         TabManager.add_paragraph = TabManager.create_paragraph
 
         function TabManager:create_text(arg1: any, arg2: any)
-            return self:_get_default_module('left'):create_text(arg1, arg2)
+            return self:_get_target_module('left'):create_text(arg1, arg2)
         end
         TabManager.AddText = TabManager.create_text
         TabManager.add_text = TabManager.create_text
