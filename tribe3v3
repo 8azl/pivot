@@ -86,6 +86,7 @@ local Settings = {
 	TriggerDelay = 60,
 	TriggerLimbs = false,
 	TriggerCrosshair = true,
+	FullCharge = false,
 }
 local LOADER_URL = "https://api.luarmor.net/files/v4/loaders/030c18901831a9df3ddf3b8bce0bf9cb.lua"
 local Core = {}
@@ -95,9 +96,11 @@ function Core.solve(origin, position, velocity, speed, gravity, grounded)
 	end
 	local travel = (position - origin).Magnitude / speed
 	local point = position
+	local worldGravity = Workspace.Gravity
 	for _ = 1, 12 do
-		local dy = velocity.Y * travel
-		dy = if grounded then math.clamp(dy, -2, 2) else math.clamp(dy, -9, 7)
+		local dy = if grounded
+			then math.clamp(velocity.Y * travel, -1.5, 1.5)
+			else math.clamp(velocity.Y * travel - 0.5 * worldGravity * travel * travel, -10, 8)
 		local future = position + Vector3.new(velocity.X * travel, dy, velocity.Z * travel)
 		local aim = future + Vector3.new(0, 0.5 * gravity * travel * travel, 0)
 		local nextTravel = (aim - origin).Magnitude / speed
@@ -155,6 +158,9 @@ function Core.facing(look, offset, arcDeg, distance, minDistance)
 	end
 	return flat.Unit:Dot(view.Unit) >= math.cos(math.rad(arcDeg))
 end
+function Core.dirChecksum(dir)
+	return dir.X * 3 + dir.Y * 5 + dir.Z * 7
+end
 function Core.shotPayload(action, payload, direction)
 	if
 		(action == "Shoot" or action == "Hurl")
@@ -162,7 +168,9 @@ function Core.shotPayload(action, payload, direction)
 		and typeof(payload.dir) == "Vector3"
 		and typeof(direction) == "Vector3"
 	then
-		payload.dir = direction.Unit
+		local unit = direction.Unit
+		payload.dir = unit
+		payload.q = Core.dirChecksum(unit)
 		return true
 	end
 	return false
@@ -219,6 +227,7 @@ if type(Shared) ~= "table" then
 	getgenv().__PivotTribs = Shared
 end
 Shared.Originals = type(Shared.Originals) == "table" and Shared.Originals or {}
+Shared.Holders = type(Shared.Holders) == "table" and Shared.Holders or {}
 local op = {
 	shot = nil,
 	meleeDirection = nil,
@@ -231,6 +240,8 @@ local op = {
 	threatFrom = nil,
 	velocities = {},
 	hooked = false,
+	guardsNeutralized = false,
+	preCharge = nil,
 }
 function op.guard(name, fn, ...)
 	local results = table.pack(xpcall(fn, function(message)
@@ -263,6 +274,9 @@ local MODULES = {
 	Simulation = { ReplicatedStorage, "Shared.Simulation" },
 	Config = { ReplicatedStorage, "Shared.Config" },
 	Presentation = { PlayerScripts, "Combat.Presentation" },
+	InputStats = { PlayerScripts, "Core.InputStats" },
+	AnimGuard = { ReplicatedStorage, "Shared.AnimGuard" },
+	WriteGuard = { ReplicatedStorage, "Shared.Simulation.WriteGuard" },
 }
 local moduleCache = {}
 local moduleRetry = {}
@@ -275,9 +289,15 @@ local function mod(name)
 		return nil
 	end
 	local entry = MODULES[name]
+	if not entry then
+		return nil
+	end
 	local node = entry[1]
 	for part in entry[2]:gmatch("[^%.]+") do
 		node = node and node:FindFirstChild(part)
+	end
+	if not node and name == "InputStats" and PlayerScripts then
+		node = PlayerScripts:FindFirstChild("InputStats", true)
 	end
 	local ok, result = pcall(require, node)
 	if ok and type(result) == "table" then
@@ -471,18 +491,31 @@ function Targets.down(model)
 	end
 	return false
 end
-function Targets.aimPart(model)
+function Targets.aimPart(model, eye)
+	local preferred = nil
 	if Settings.AimPart == "Head" then
 		local head = model:FindFirstChild("Head")
 		if head and head:IsA("BasePart") then
-			return head
+			preferred = head
 		end
 	end
-	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
-	if torso and torso:IsA("BasePart") then
-		return torso
+	if not preferred then
+		local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+		if torso and torso:IsA("BasePart") then
+			preferred = torso
+		else
+			preferred = rootOf(model)
+		end
 	end
-	return rootOf(model)
+	if preferred and eye and Settings.VisibleCheck and not Sight.line(eye, model, preferred.Position) then
+		for _, name in CORE_POINTS do
+			local candidate = model:FindFirstChild(name)
+			if candidate and candidate:IsA("BasePart") and Sight.line(eye, model, candidate.Position) then
+				return candidate
+			end
+		end
+	end
+	return preferred
 end
 function Targets.onScreen(origin)
 	local camera = Workspace.CurrentCamera
@@ -495,7 +528,7 @@ function Targets.onScreen(origin)
 	local bestModel, bestPart, bestScore = nil, nil, math.huge
 	for _, model in Targets.list() do
 		if Targets.hittable(model) and Targets.relation(model) ~= "ally" then
-			local part = Targets.aimPart(model)
+			local part = Targets.aimPart(model, eye)
 			local humanoid = humanoidOf(model)
 			if part and humanoid then
 				local screen, visibleOnScreen = camera:WorldToViewportPoint(part.Position)
@@ -644,28 +677,30 @@ local function compensateGunSpread(handler, desiredDir)
 		return desiredDir
 	end
 	local kind = handler.ctx and handler.ctx.kind
-	if kind == "Blunderbuss" or type(combat.SpreadDir) ~= "function" or type(handler.Seed) ~= "function" then
+	if
+		kind == "Blunderbuss"
+		or kind == "Crossbow"
+		or type(combat.SpreadDir) ~= "function"
+		or type(handler.Seed) ~= "function"
+	then
 		return desiredDir
 	end
 	local state = okValue(controller.State)
-	local shotId = (type(state) == "table" and tonumber(state.shotId) or 0) + 1
+	local shotId = (op.shot and tonumber(op.shot.shotId))
+		or ((type(state) == "table" and tonumber(state.shotId) or 0) + 1)
 	local seed = okValue(handler.Seed, handler, shotId)
 	if type(seed) ~= "number" then
 		return desiredDir
 	end
-	local spread = handler.aiming and (handler.tuning.spreadAim or 0) or (handler.tuning.spreadHip or 0)
-	if not handler.aiming then
-		local root = handler.ctx and handler.ctx.root
-		local vel = root and root.AssemblyLinearVelocity or Vector3.zero
-		if Vector3.new(vel.X, 0, vel.Z).Magnitude > 2 then
-			spread += (handler.tuning.spreadMove or 1.8)
-		end
-	end
+	local aimed = if type(handler.Aimed) == "function"
+		then okValue(handler.Aimed, handler) == true
+		else handler.aiming == true
+	local spread = aimed and (handler.tuning.spreadAim or 0) or (handler.tuning.spreadHip or 0)
 	if spread <= 0 then
 		return desiredDir
 	end
 	local compensated = desiredDir
-	for _ = 1, 3 do
+	for _ = 1, 6 do
 		local spreadOut = okValue(combat.SpreadDir, compensated, spread, seed, 0)
 		if typeof(spreadOut) ~= "Vector3" then
 			break
@@ -678,6 +713,9 @@ local function compensateGunSpread(handler, desiredDir)
 	return compensated
 end
 local function handlerCharge(handler)
+	if Pivot.Running and Settings.FullCharge and (handler.drawing or handler.winding) then
+		return 1
+	end
 	if (handler.drawing or handler.winding) and type(handler.Charge) == "function" then
 		return handler:Charge()
 	end
@@ -726,52 +764,120 @@ local function within(state, original, ...)
 	end
 	return table.unpack(results, 2, results.n)
 end
-local PURE_HOOKS = {
-	["Util.AimDirection"] = true,
-	["Util.AssistDirection"] = true,
-	["Util.AimPoint"] = true,
-	["Util.GetAimRay"] = true,
-	["Util.Recoil"] = true,
-	["Util.RecoilSlow"] = true,
-	["Util.Shake"] = true,
-	["Combat.MoveSpeed"] = true,
-	["Melee.Detect"] = true,
-}
-local canHookFunction = type(hookfunction) == "function" and type(newcclosure) == "function"
 local function hook(moduleName, key, build)
 	local target = mod(moduleName)
 	if not target or type(target[key]) ~= "function" then
 		return false
 	end
 	local id = moduleName .. "." .. key
-	if PURE_HOOKS[id] and canHookFunction then
-		local live = target[key]
-		local stored = Shared.Originals[id]
-		if stored and stored ~= live then
-			target[key] = stored
-			live = stored
+	if Shared.Holders[id] then
+		if type(restorefunction) == "function" then
+			pcall(restorefunction, target[key])
 		end
-		local holder = {}
-		local wrapper = newcclosure(function(...)
-			return holder.fn(...)
-		end)
-		local ok, original = pcall(hookfunction, live, wrapper)
-		if ok and type(original) == "function" then
-			holder.fn = build(original)
-			table.insert(Pivot.Restore, function()
-				holder.fn = original
-				pcall(hookfunction, live, original)
-			end)
-			return true
-		end
+		Shared.Holders[id] = nil
 	end
 	local original = Shared.Originals[id] or target[key]
 	Shared.Originals[id] = original
-	target[key] = build(original)
+	local replacement = build(original)
+	target[key] = if type(newcclosure) == "function" then newcclosure(replacement) else replacement
 	table.insert(Pivot.Restore, function()
 		target[key] = original
 	end)
 	return true
+end
+local VALID_CALLER_MT = {
+	__index = function()
+		return true
+	end,
+}
+local function syncInputStatsWatches()
+	local inputStats = mod("InputStats")
+	if not inputStats then
+		return
+	end
+	local getups = (type(debug) == "table" and type(debug.getupvalues) == "function" and debug.getupvalues)
+		or (type(getupvalues) == "function" and getupvalues)
+	local setup = (type(debug) == "table" and type(debug.setupvalue) == "function" and debug.setupvalue)
+		or (type(setupvalue) == "function" and setupvalue)
+	if type(getups) ~= "function" then
+		return
+	end
+	for _, key in { "Take", "Watch", "Caller" } do
+		local orig = Shared.Originals["InputStats." .. key]
+		local fn = orig or inputStats[key]
+		if type(fn) == "function" then
+			local ok, ups = pcall(getups, fn)
+			if ok and type(ups) == "table" then
+				for idx, uv in pairs(ups) do
+					if type(uv) == "number" and type(setup) == "function" then
+						pcall(setup, fn, idx, 0)
+					elseif type(uv) == "table" and uv ~= inputStats and uv.BodyVelocity == nil then
+						if #uv == 1 and type(uv[1]) == "number" then
+							uv[1] = 0
+						elseif type(uv[1]) == "table" and uv[1].t ~= nil and uv[1].k ~= nil then
+							for _, item in ipairs(uv) do
+								if type(item) == "table" and type(item.t) == "table" and item.k ~= nil then
+									item.f = rawget(item.t, item.k)
+								end
+							end
+						elseif key == "Caller" and uv[1] == nil then
+							pcall(setmetatable, uv, VALID_CALLER_MT)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+local function overwriteGuardFn(moduleName, target, key, fn)
+	if not target or type(target[key]) ~= "function" then
+		return
+	end
+	hook(moduleName, key, function()
+		return fn
+	end)
+end
+local function neutralizeGuards()
+	local inputStats = mod("InputStats")
+	if inputStats then
+		syncInputStatsWatches()
+		overwriteGuardFn("InputStats", inputStats, "Take", function()
+			return 0
+		end)
+		for _, key in { "Caller", "Note", "Watch", "Start" } do
+			overwriteGuardFn("InputStats", inputStats, key, function()
+				return nil
+			end)
+		end
+		syncInputStatsWatches()
+	end
+	local simulation = mod("Simulation")
+	if simulation and type(simulation.OnForeignWrite) == "function" then
+		pcall(simulation.OnForeignWrite, nil)
+		overwriteGuardFn("Simulation", simulation, "OnForeignWrite", function()
+			return nil
+		end)
+	end
+	local writeGuard = mod("WriteGuard")
+	if writeGuard then
+		for _, key in { "Start", "Reset" } do
+			overwriteGuardFn("WriteGuard", writeGuard, key, function()
+				return nil
+			end)
+		end
+		overwriteGuardFn("WriteGuard", writeGuard, "Stats", function()
+			return { cframe = 0, velocity = 0, walkSpeed = 0, jumpHeight = 0, attrs = 0 }
+		end)
+	end
+	local animGuard = mod("AnimGuard")
+	if animGuard then
+		for _, key in { "Watch", "Check" } do
+			overwriteGuardFn("AnimGuard", animGuard, key, function()
+				return nil
+			end)
+		end
+	end
+	return inputStats ~= nil and simulation ~= nil and writeGuard ~= nil and animGuard ~= nil
 end
 local function trackHandler(original)
 	return function(self, ...)
@@ -785,6 +891,7 @@ local function dropHandler(original)
 	return function(self, ...)
 		if op.handler == self then
 			op.handler = nil
+			op.preCharge = nil
 		end
 		return original(self, ...)
 	end
@@ -805,40 +912,63 @@ function installRemoteBackstop()
 		return false
 	end
 	Shared.WeaponAction = weaponAction
+	Shared.AnimRelay = remotes:FindFirstChild("AnimRelay")
+	Shared.AnalyticsReport = remotes:FindFirstChild("AnalyticsReport")
+	Shared.ProfileAction = remotes:FindFirstChild("ProfileAction")
 	Shared.Backstop = function(self, action, payload)
-		if self ~= Shared.WeaponAction or not (Pivot.Running and Settings.SilentAim and Settings.RemoteBackstop) then
+		if self ~= Shared.WeaponAction or not Pivot.Running or type(payload) ~= "table" then
 			return
 		end
-		if type(payload) ~= "table" or typeof(payload.origin) ~= "Vector3" then
+		if action == "Shoot" and Settings.FullCharge and type(payload.charge) == "number" then
+			payload.charge = 1
+		end
+		if action == "Swing" and (Settings.MeleeAura or Settings.AutoSwing) then
+			if type(payload.hits) == "table" and payload.hits[1] then
+				local theirRoot = rootOf(payload.hits[1])
+				local myRoot = rootOf(character())
+				if theirRoot and myRoot then
+					local flat = (theirRoot.Position - myRoot.Position) * Vector3.new(1, 0, 1)
+					if flat.Magnitude > 0.05 then
+						payload.dir = flat.Unit
+					end
+				end
+			end
+			if typeof(payload.dir) == "Vector3" then
+				payload.q = Core.dirChecksum(payload.dir)
+			end
 			return
 		end
-		local shot = op.shot
-		if shot and typeof(shot.silentDir) == "Vector3" then
-			Core.shotPayload(action, payload, shot.silentDir)
-			return
+		if Settings.SilentAim and Settings.RemoteBackstop and typeof(payload.origin) == "Vector3" then
+			local shot = op.shot
+			if shot and typeof(shot.silentDir) == "Vector3" then
+				Core.shotPayload(action, payload, shot.silentDir)
+				return
+			end
+			if action == "Shoot" or action == "Hurl" then
+				local handler = op.handler
+				if handler and handler.tuning then
+					local kind = handler.ctx and handler.ctx.kind
+					local tuning = if action == "Hurl" then handler.tuning.throw else handler.tuning
+					local state = {
+						kind = if action == "Hurl" then "Hatchets" else kind,
+						tuning = tuning,
+						charge = if Settings.FullCharge then 1 else (tonumber(payload.charge) or 1),
+						shotId = tonumber(payload.id),
+						gun = action == "Shoot" and Ballistics.isGun(kind),
+						handler = handler,
+					}
+					local previous = op.shot
+					op.shot = state
+					local ok, direction = pcall(silentDirection, payload.origin)
+					op.shot = previous
+					if ok and typeof(direction) == "Vector3" then
+						Core.shotPayload(action, payload, direction)
+					end
+				end
+			end
 		end
-		if action ~= "Shoot" and action ~= "Hurl" then
-			return
-		end
-		local handler = op.handler
-		if not (handler and handler.tuning) then
-			return
-		end
-		local kind = handler.ctx and handler.ctx.kind
-		local tuning = if action == "Hurl" then handler.tuning.throw else handler.tuning
-		local state = {
-			kind = if action == "Hurl" then "Hatchets" else kind,
-			tuning = tuning,
-			charge = tonumber(payload.charge) or 1,
-			gun = action == "Shoot" and Ballistics.isGun(kind),
-			handler = handler,
-		}
-		local previous = op.shot
-		op.shot = state
-		local ok, direction = pcall(silentDirection, payload.origin)
-		op.shot = previous
-		if ok and typeof(direction) == "Vector3" then
-			Core.shotPayload(action, payload, direction)
+		if typeof(payload.dir) == "Vector3" then
+			payload.q = Core.dirChecksum(payload.dir)
 		end
 	end
 	if Shared.NamecallInstalled then
@@ -850,10 +980,66 @@ function installRemoteBackstop()
 		game,
 		"__namecall",
 		newcclosure(function(self, ...)
-			if not checkcaller() and getnamecallmethod() == "FireServer" then
-				local backstop = Shared.Backstop
-				if backstop and self == Shared.WeaponAction then
-					pcall(backstop, self, ...)
+			if not checkcaller() then
+				local method = getnamecallmethod()
+				if method == "FireServer" then
+					if self == Shared.WeaponAction then
+						if Pivot.Running then
+							local action, payload = select(1, ...), select(2, ...)
+							if action == "Charge" and type(payload) == "table" then
+								if payload.on == true then
+									local pre = op.preCharge
+									if
+										Settings.FullCharge
+										and pre
+										and not pre.sending
+										and pre.tool == payload.tool
+										and pre.kind == payload.kind
+										and os.clock() - pre.at < 8
+									then
+										return nil
+									end
+									op.preCharge = {
+										tool = payload.tool,
+										kind = payload.kind,
+										at = os.clock(),
+										sending = false,
+									}
+								else
+									op.preCharge = nil
+								end
+							elseif action == "Shoot" then
+								op.preCharge = nil
+							end
+						end
+						local backstop = Shared.Backstop
+						if backstop then
+							pcall(backstop, self, ...)
+						end
+					elseif self == Shared.AnimRelay or (typeof(self) == "Instance" and self.Name == "AnimRelay") then
+						if select("#", ...) >= 6 and select(6, ...) ~= 0 then
+							local a1, a2, a3, a4, a5 = ...
+							return oldNamecall(self, a1, a2, a3, a4, a5, 0)
+						end
+					elseif
+						self == Shared.AnalyticsReport
+						or (typeof(self) == "Instance" and self.Name == "AnalyticsReport")
+					then
+						if select("#", ...) >= 3 and select(1, ...) == "Fps" and select(3, ...) ~= 0 then
+							local a1, a2 = ...
+							return oldNamecall(self, a1, a2, 0)
+						end
+					end
+				elseif method == "InvokeServer" then
+					if
+						self == Shared.ProfileAction
+						or (typeof(self) == "Instance" and self.Name == "ProfileAction")
+					then
+						if select("#", ...) >= 3 and select(1, ...) == "AckReveal" and select(3, ...) ~= 0 then
+							local a1, a2 = ...
+							return oldNamecall(self, a1, a2, 0)
+						end
+					end
 				end
 			end
 			return oldNamecall(self, ...)
@@ -874,6 +1060,8 @@ local function updateMeleeDirection(root, theirRoot)
 	end
 end
 local function installHooks()
+	local guardsOk, guardsDone = op.guard("neutralizeGuards", neutralizeGuards)
+	op.guardsNeutralized = guardsOk == true and guardsDone == true
 	local ready = mod("Util")
 		and mod("Combat")
 		and mod("Bow")
@@ -903,15 +1091,17 @@ local function installHooks()
 	end)
 	hook("Util", "AimPoint", function(original)
 		return function(...)
-			if
-				Pivot.Running
-				and Settings.SilentAim
-				and op.shot
-				and op.shot.hurl
-				and typeof(op.shot.silentDir) == "Vector3"
-				and typeof(op.shot.origin) == "Vector3"
-			then
-				return op.shot.origin
+			if Pivot.Running and Settings.SilentAim and op.shot and op.shot.hurl then
+				if typeof(op.shot.silentDir) ~= "Vector3" then
+					local util = mod("Util")
+					local origin = util and okValue(util.ShotOrigin, nil)
+					if typeof(origin) == "Vector3" then
+						op.guard("silentAim", silentDirection, origin)
+					end
+				end
+				if typeof(op.shot.silentDir) == "Vector3" and typeof(op.shot.origin) == "Vector3" then
+					return op.shot.origin
+				end
 			end
 			return original(...)
 		end
@@ -952,6 +1142,7 @@ local function installHooks()
 				if type(base) == "number" and base > mult then
 					mult = base
 				end
+				noSlide = false
 			end
 			if not (Pivot.Running and Settings.SpeedBoost and type(mult) == "number") then
 				return mult, noSlide
@@ -972,6 +1163,26 @@ local function installHooks()
 			return mult * boost, noSlide
 		end
 	end)
+	hook("Bow", "Charge", function(original)
+		return function(self, ...)
+			if Pivot.Running and Settings.FullCharge and self and self.drawing then
+				local drawTime = (self.tuning and self.tuning.drawTime) or 1
+				self.drawStart = math.min(tonumber(self.drawStart) or 0, os.clock() - drawTime)
+				return 1
+			end
+			return original(self, ...)
+		end
+	end)
+	hook("Throw", "Charge", function(original)
+		return function(self, ...)
+			if Pivot.Running and Settings.FullCharge and self and self.winding then
+				local drawTime = (self.tuning and self.tuning.drawTime) or 0.5
+				self.start = math.min(tonumber(self.start) or 0, os.clock() - drawTime)
+				return 1
+			end
+			return original(self, ...)
+		end
+	end)
 	hook("Gun", "Fire", function(original)
 		return function(self, ...)
 			local state = {
@@ -986,7 +1197,13 @@ local function installHooks()
 	end)
 	hook("Bow", "Fire", function(original)
 		return function(self, ...)
-			local actualCharge = math.clamp(self.drawing and self:Charge() or 1, 0, 1)
+			if Pivot.Running and Settings.FullCharge and self and self.drawing then
+				local drawTime = (self.tuning and self.tuning.drawTime) or 1
+				self.drawStart = math.min(tonumber(self.drawStart) or 0, os.clock() - drawTime)
+			end
+			local actualCharge = if Pivot.Running and Settings.FullCharge
+				then 1
+				else math.clamp(self.drawing and self:Charge() or 1, 0, 1)
 			local state = {
 				kind = "Bow",
 				tuning = self.tuning,
@@ -996,16 +1213,50 @@ local function installHooks()
 			return within(state, original, self, ...)
 		end
 	end)
-	hook("Throw", "Launch", function(original)
-		return function(self, charge, assist, ...)
-			if not (assist and Pivot.Running and Settings.SilentAim) then
-				return original(self, charge, assist, ...)
-			end
-			local origin, dir, speed = original(self, charge, assist, ...)
+	hook("Throw", "Release", function(original)
+		return function(self, charge, ...)
+			local actualCharge = if Pivot.Running
+					and Settings.FullCharge
+					and self
+					and self.winds
+				then 1
+				else (charge or 1)
 			local state = {
 				kind = self.kind or (self.ctx and self.ctx.kind),
 				tuning = self.tuning,
-				charge = charge or 1,
+				charge = actualCharge,
+				thrown = true,
+				handler = self,
+			}
+			return within(state, original, self, actualCharge, ...)
+		end
+	end)
+	hook("Throw", "Launch", function(original)
+		return function(self, charge, assist, ...)
+			local actualCharge = if Pivot.Running
+					and Settings.FullCharge
+					and self
+					and self.winds
+				then 1
+				else (charge or 1)
+			if not (assist and Pivot.Running and Settings.SilentAim) then
+				return original(self, actualCharge, assist, ...)
+			end
+			local origin, dir, speed = original(self, actualCharge, assist, ...)
+			local active = op.shot
+			if active and active.thrown then
+				active.speed = speed
+				active.charge = actualCharge
+				local ok, silentDir = op.guard("silentAim", silentDirection, origin)
+				if ok and typeof(silentDir) == "Vector3" then
+					return origin, silentDir, speed
+				end
+				return origin, dir, speed
+			end
+			local state = {
+				kind = self.kind or (self.ctx and self.ctx.kind),
+				tuning = self.tuning,
+				charge = actualCharge,
 				speed = speed,
 				thrown = true,
 				handler = self,
@@ -1037,6 +1288,9 @@ local function installHooks()
 	end)
 	hook("Melee", "ReleaseCharge", function(original)
 		return function(self, ...)
+			if Pivot.Running and Settings.FullCharge and self and self.charging then
+				self.chargeStart = math.min(tonumber(self.chargeStart) or 0, os.clock() - 2)
+			end
 			if Pivot.Running and (Settings.MeleeAura or Settings.AutoSwing) then
 				local baseRange = (self.tuning and self.tuning.range or 8) + 3
 				local reach = baseRange + (Settings.MeleeAura and Settings.MeleeReach or 0)
@@ -1073,6 +1327,7 @@ local function installHooks()
 		hook(name, "Update", trackHandler)
 		hook(name, "Unequip", dropHandler)
 	end
+	syncInputStatsWatches()
 	op.guard("remoteBackstop", installRemoteBackstop)
 	return true
 end
@@ -1197,6 +1452,50 @@ function Targets.triggerClear(handler, model, part)
 	local aimPoint = Ballistics.intercept(origin, model, part, speed, gravity)
 	return Sight.arc(origin, model, aimPoint, speed, gravity)
 end
+local function stepPreCharge()
+	if not (Pivot.Running and Settings.FullCharge) then
+		return
+	end
+	local handler = op.handler
+	if not (handler and handler.ctx and handler.ctx.tool and type(handler.ctx.send) == "function") then
+		return
+	end
+	local kind = handler.ctx.kind
+	local isBow = kind == "Bow"
+	local isDrawnThrow = handler.winds == true
+	if not (isBow or isDrawnThrow) then
+		return
+	end
+	if handler.drawing or handler.winding then
+		return
+	end
+	if not canAct() or (type(handler.Ready) == "function" and not handler:Ready()) then
+		return
+	end
+	if type(handler.ammo) == "number" and handler.ammo <= 0 then
+		return
+	end
+	local chargeKind = if isBow then "Bow" else (handler.kind or kind)
+	local now = os.clock()
+	local pre = op.preCharge
+	if pre and pre.tool == handler.ctx.tool and pre.kind == chargeKind and now - pre.at < 8 then
+		return
+	end
+	op.preCharge = {
+		tool = handler.ctx.tool,
+		kind = chargeKind,
+		at = now,
+		sending = true,
+	}
+	pcall(handler.ctx.send, "Charge", {
+		tool = handler.ctx.tool,
+		kind = chargeKind,
+		on = true,
+	})
+	if op.preCharge then
+		op.preCharge.sending = false
+	end
+end
 local function stepTrigger()
 	local handler = op.handler
 	if not Settings.Triggerbot or not handler or not handler.ctx or not isRanged(handler.ctx.kind) then
@@ -1241,8 +1540,12 @@ local function stepTrigger()
 	op.triggerSeen = nil
 	if drawn then
 		dispatch("Primary", true)
-		op.triggerHeld = handler
-		op.triggerAt = os.clock()
+		if Settings.FullCharge then
+			dispatch("Primary", false)
+		else
+			op.triggerHeld = handler
+			op.triggerAt = os.clock()
+		end
 	else
 		tap("Primary")
 	end
@@ -1250,6 +1553,17 @@ end
 local function stepAutoRelease()
 	local handler = op.handler
 	if not Settings.AutoRelease or not handler or op.triggerHeld then
+		return
+	end
+	local threshold = math.clamp(Settings.ReleaseCharge / 100, 0.4, 1)
+	if handler.charging and handler.chargeStart and mouseHeld(Enum.UserInputType.MouseButton2) then
+		local chargeTime = (handler.chargeSpec and handler.chargeSpec.chargeTime) or 0.55
+		local meleeCharge = if Settings.FullCharge
+			then 1
+			else math.clamp((os.clock() - handler.chargeStart) / chargeTime, 0, 1)
+		if meleeCharge >= threshold and type(handler.ReleaseCharge) == "function" then
+			handler:ReleaseCharge()
+		end
 		return
 	end
 	if not mouseHeld(Enum.UserInputType.MouseButton1) then
@@ -1260,14 +1574,31 @@ local function stepAutoRelease()
 		return
 	end
 	if handler.drawing or handler.winding then
-		local threshold = math.clamp(Settings.ReleaseCharge / 100, 0.4, 1)
 		if handlerCharge(handler) >= threshold then
-			dispatch("Primary", false)
-			nextAt.autoDraw = os.clock() + 0.06
+			if handler.drawing and type(handler.Fire) == "function" then
+				handler:Fire()
+			elseif handler.winding and type(handler.Throw) == "function" then
+				handler:Throw()
+			else
+				dispatch("Primary", false)
+			end
+			handler.m1Down = true
+			handler.bufferedAt = os.clock()
+			nextAt.autoDraw = os.clock() + 0.02
 		end
-	elseif os.clock() >= nextAt.autoDraw and canAct() and (type(handler.Ready) ~= "function" or handler:Ready()) then
-		nextAt.autoDraw = os.clock() + 0.15
-		dispatch("Primary", true)
+	else
+		handler.m1Down = true
+		handler.bufferedAt = os.clock()
+		if os.clock() >= nextAt.autoDraw and canAct() and (type(handler.Ready) ~= "function" or handler:Ready()) then
+			nextAt.autoDraw = os.clock() + 0.05
+			if handler.ctx and handler.ctx.kind == "Bow" and type(handler.StartDraw) == "function" then
+				handler:StartDraw()
+			elseif handler.winds == true and type(handler.Start) == "function" then
+				handler:Start()
+			else
+				dispatch("Primary", true)
+			end
+		end
 	end
 end
 local function stepAutoSwing()
@@ -1944,15 +2275,24 @@ local function serverHop()
 	TeleportService:TeleportToPlaceInstance(game.PlaceId, options[math.random(1, #options)], LocalPlayer)
 	return true
 end
+do
+	local ok, done = op.guard("installHooks", installHooks)
+	op.hooked = ok == true and done == true
+end
 Pivot.track(RunService.Heartbeat:Connect(function()
 	if not Pivot.Running then
 		return
+	end
+	if not op.guardsNeutralized then
+		local ok, done = op.guard("neutralizeGuards", neutralizeGuards)
+		op.guardsNeutralized = ok == true and done == true
 	end
 	if not op.hooked then
 		local ok, done = op.guard("installHooks", installHooks)
 		op.hooked = ok == true and done == true
 	end
 	local now = os.clock()
+	op.guard("preCharge", stepPreCharge)
 	op.guard("triggerbot", stepTrigger)
 	op.guard("autoRelease", stepAutoRelease)
 	op.guard("autoSwing", stepAutoSwing)
@@ -2673,6 +3013,17 @@ do
 			default = Settings.AutoRelease,
 			callback = function(state)
 				Settings.AutoRelease = state
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Instant Full Charge",
+			flag = "FullCharge",
+			default = Settings.FullCharge,
+			callback = function(state)
+				Settings.FullCharge = state
+				if not state then
+					op.preCharge = nil
+				end
 			end,
 		})
 	end
