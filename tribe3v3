@@ -742,6 +742,9 @@ local function silentDirection(origin)
 	end
 	local speed, gravity = Ballistics.profile(shot.kind, shot.tuning, shot.charge, shot.speed)
 	local aimPoint = Ballistics.intercept(origin, model, part, speed, gravity)
+	if not Sight.arc(origin, model, aimPoint, speed, gravity) then
+		return nil
+	end
 	local delta = aimPoint - origin
 	if delta.Magnitude <= 0.001 then
 		return nil
@@ -790,6 +793,17 @@ local VALID_CALLER_MT = {
 		return true
 	end,
 }
+local function probePass(first, second)
+	local util = mod("Util")
+	if not (util and type(util.Probe) == "function") then
+		return nil
+	end
+	local ok, probed = pcall(util.Probe, first, second)
+	if ok and probed ~= nil then
+		return probed
+	end
+	return nil
+end
 local function syncInputStatsWatches()
 	local inputStats = mod("InputStats")
 	if not inputStats then
@@ -797,36 +811,54 @@ local function syncInputStatsWatches()
 	end
 	local getups = (type(debug) == "table" and type(debug.getupvalues) == "function" and debug.getupvalues)
 		or (type(getupvalues) == "function" and getupvalues)
+	local getup = (type(debug) == "table" and type(debug.getupvalue) == "function" and debug.getupvalue)
+		or (type(getupvalue) == "function" and getupvalue)
 	local setup = (type(debug) == "table" and type(debug.setupvalue) == "function" and debug.setupvalue)
 		or (type(setupvalue) == "function" and setupvalue)
-	if type(getups) ~= "function" then
-		return
-	end
-	for _, key in { "Take", "Watch", "Caller" } do
-		local orig = Shared.Originals["InputStats." .. key]
-		local fn = orig or inputStats[key]
-		if type(fn) == "function" then
-			local ok, ups = pcall(getups, fn)
-			if ok and type(ups) == "table" then
-				for idx, uv in pairs(ups) do
-					if type(uv) == "number" and type(setup) == "function" then
-						pcall(setup, fn, idx, 0)
-					elseif type(uv) == "table" and uv ~= inputStats and uv.BodyVelocity == nil then
-						if #uv == 1 and type(uv[1]) == "number" then
-							uv[1] = 0
-						elseif type(uv[1]) == "table" and uv[1].t ~= nil and uv[1].k ~= nil then
-							for _, item in ipairs(uv) do
-								if type(item) == "table" and type(item.t) == "table" and item.k ~= nil then
-									item.f = rawget(item.t, item.k)
-								end
-							end
-						elseif key == "Caller" and uv[1] == nil then
-							pcall(setmetatable, uv, VALID_CALLER_MT)
+	local function scrub(fn, key)
+		if type(fn) ~= "function" then
+			return
+		end
+		local function handle(idx, uv)
+			if type(uv) == "number" and type(setup) == "function" then
+				pcall(setup, fn, idx, 0)
+			elseif type(uv) == "table" and uv ~= inputStats and uv.BodyVelocity == nil then
+				if type(uv[1]) == "table" and uv[1].t ~= nil and uv[1].k ~= nil then
+					for _, item in ipairs(uv) do
+						if type(item) == "table" and type(item.t) == "table" and item.k ~= nil then
+							item.f = rawget(item.t, item.k)
 						end
 					end
+				elseif type(uv[1]) == "table" and type(uv[1].f) == "function" and uv[1].args ~= nil then
+					table.clear(uv)
+				elseif key == "Caller" then
+					pcall(setmetatable, uv, VALID_CALLER_MT)
 				end
 			end
 		end
+		if type(getups) == "function" then
+			local ok, ups = pcall(getups, fn)
+			if ok and type(ups) == "table" then
+				for idx, uv in pairs(ups) do
+					handle(idx, uv)
+				end
+				return
+			end
+		end
+		if type(getup) == "function" then
+			for idx = 1, 12 do
+				local ok, a, b = pcall(getup, fn, idx)
+				local uv = if ok then (if b ~= nil then b else a) else nil
+				if not ok or uv == nil and a == nil then
+					break
+				end
+				handle(idx, uv)
+			end
+		end
+	end
+	for _, key in { "Take", "Watch", "Caller", "Note", "Hooked", "Start" } do
+		local orig = Shared.Originals["InputStats." .. key]
+		scrub(orig or inputStats[key], key)
 	end
 end
 local function overwriteGuardFn(moduleName, target, key, fn)
@@ -844,9 +876,17 @@ local function neutralizeGuards()
 		overwriteGuardFn("InputStats", inputStats, "Take", function()
 			return 0
 		end)
-		for _, key in { "Caller", "Note", "Watch", "Start" } do
+		for _, key in { "Caller", "Note", "Watch", "Start", "Hooked" } do
 			overwriteGuardFn("InputStats", inputStats, key, function()
 				return nil
+			end)
+		end
+		if type(inputStats.PROBE) == "table" then
+			pcall(function()
+				inputStats.PROBE.n = 0
+				inputStats.PROBE.s = ""
+				inputStats.PROBE.t = {}
+				inputStats.PROBE.v = Vector3.zero
 			end)
 		end
 		syncInputStatsWatches()
@@ -877,7 +917,7 @@ local function neutralizeGuards()
 			end)
 		end
 	end
-	return inputStats ~= nil and simulation ~= nil and writeGuard ~= nil and animGuard ~= nil
+	return inputStats ~= nil
 end
 local function trackHandler(original)
 	return function(self, ...)
@@ -1074,6 +1114,10 @@ local function installHooks()
 	end
 	hook("Util", "AimDirection", function(original)
 		return function(origin, ...)
+			local probed = probePass(origin, ...)
+			if probed ~= nil then
+				return probed
+			end
 			local ok, direction = op.guard("silentAim", silentDirection, origin)
 			if ok and typeof(direction) == "Vector3" then
 				return direction
@@ -1118,20 +1162,28 @@ local function installHooks()
 	end)
 	for _, key in { "Recoil", "RecoilSlow" } do
 		hook("Util", key, function(original)
-			return function(...)
+			return function(first, second, ...)
+				local probed = probePass(first, second)
+				if probed ~= nil then
+					return probed
+				end
 				if Settings.NoRecoil and Pivot.Running then
 					return nil
 				end
-				return original(...)
+				return original(first, second, ...)
 			end
 		end)
 	end
 	hook("Util", "Shake", function(original)
-		return function(...)
+		return function(first, second, ...)
+			local probed = probePass(first, second)
+			if probed ~= nil then
+				return probed
+			end
 			if Settings.NoShake and Pivot.Running then
 				return nil
 			end
-			return original(...)
+			return original(first, second, ...)
 		end
 	end)
 	hook("Combat", "MoveSpeed", function(original)
@@ -1304,6 +1356,10 @@ local function installHooks()
 	end)
 	hook("Melee", "Detect", function(original)
 		return function(self, range, arc, maxTargets)
+			local probed = probePass(self, range)
+			if probed ~= nil then
+				return probed
+			end
 			if Pivot.Running and (Settings.MeleeAura or Settings.AutoSwing) then
 				local reach = (range or 8) + (Settings.MeleeAura and Settings.MeleeReach or 0)
 				local ok, theirRoot = op.guard("meleeAura", Targets.melee, self, reach)
@@ -2292,6 +2348,10 @@ Pivot.track(RunService.Heartbeat:Connect(function()
 		op.hooked = ok == true and done == true
 	end
 	local now = os.clock()
+	if op.guardsNeutralized and now >= (nextAt.guardSync or 0) then
+		nextAt.guardSync = now + 2.5
+		op.guard("guardSync", syncInputStatsWatches)
+	end
 	op.guard("preCharge", stepPreCharge)
 	op.guard("triggerbot", stepTrigger)
 	op.guard("autoRelease", stepAutoRelease)
