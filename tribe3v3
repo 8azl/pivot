@@ -1,107 +1,17 @@
-(function()
+local WHITE = Color3.new(1, 1, 1)
+if type(getgenv().PivotUnload) == "function" then
+	pcall(getgenv().PivotUnload)
+end
+getgenv().PivotUnload = nil
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Stats = game:GetService("Stats")
 local LocalPlayer = Players.LocalPlayer
-
-if type(getgenv().PivotUnload) == "function" then
-	pcall(getgenv().PivotUnload)
-	getgenv().PivotUnload = nil
-end
-
-local K = {
-	Wait = 10,
-	AimStep = "PivotTribsAim",
-	Flat = Vector3.new(1, 0, 1),
-	White = Color3.new(1, 1, 1),
-	LoaderUrl = "https://api.luarmor.net/files/v4/loaders/030c18901831a9df3ddf3b8bce0bf9cb.lua",
-	ReachBias = 0.35,
-	SolveSteps = 12,
-	MaxTravel = 5,
-	MaxRange = 1200,
-	HatchetSpeed = 120,
-	ThrowGravity = 60,
-	ServerList = "https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true",
-}
-
-local Config = {
-	SilentAim = false,
-	Aimbot = false,
-	AimbotKey = "Hold Right Mouse",
-	AimPart = "Head",
-	VisibleCheck = true,
-	AimFov = 180,
-	AimSmoothness = 40,
-	Prediction = 100,
-	AutoPrediction = false,
-	HitChance = 100,
-	NoSpread = false,
-	Triggerbot = false,
-	TriggerDelay = 80,
-	TriggerCrosshair = true,
-	TriggerLimbs = false,
-	ReleaseCharge = 100,
-	AutoRelease = false,
-	FullCharge = false,
-	AimPriority = "Crosshair",
-	AimHumanize = true,
-	RemoteBackstop = true,
-	MeleeAura = false,
-	MeleeReach = 0,
-	AuraPriority = "Closest",
-	AutoSwing = false,
-	AutoSwingFacing = true,
-	AutoSwingMinDistance = 0,
-	HitboxExpander = false,
-	HitboxSize = 6,
-	TeleportKill = false,
-	TeleportTarget = "Nearest",
-	TeleportOffset = 3,
-	TeleportReturn = true,
-	AutoBlock = false,
-	BlockRadius = 4,
-	BlockFaceThreat = false,
-	AutoParry = false,
-	ParryRange = 14,
-	ParryProjectiles = true,
-	ParryPingComp = true,
-	AutoHeal = false,
-	HealThreshold = 45,
-	SlideHop = false,
-	SlideHopMode = "While Moving",
-	SlideHopDelay = 1,
-	BunnyHop = false,
-	NoSlow = false,
-	SpeedBoost = false,
-	SpeedBoostMode = "Always",
-	SpeedBoostAmount = 15,
-	NoRecoil = false,
-	NoShake = false,
-	NoViewBob = false,
-	AutoReload = false,
-	AutoQueue = false,
-	AutoExecute = false,
-	PlayerEsp = false,
-	HealthBars = true,
-	EspInfo = true,
-	EspHealthText = true,
-	PlayerTracers = false,
-	PlayerChams = false,
-	SkeletonEsp = false,
-	EspTeammates = false,
-	EspLobby = false,
-	TrapEsp = false,
-	EspMaxDistance = 600,
-	ShowFov = false,
-	HitMarker = false,
-}
-
+local PlayerScripts = LocalPlayer:WaitForChild("PlayerScripts")
+local AIM_STEP = "PivotTribsAim"
 local Pivot = {
 	Running = true,
 	Connections = {},
@@ -113,125 +23,246 @@ function Pivot.track(connection)
 	table.insert(Pivot.Connections, connection)
 	return connection
 end
-
+local Settings = {
+	SilentAim = false,
+	Aimbot = false,
+	AimbotKey = "Hold Right Mouse",
+	AimPart = "Head",
+	VisibleCheck = true,
+	AimFov = 180,
+	AimSmoothness = 40,
+	Prediction = 100,
+	HitChance = 100,
+	Triggerbot = false,
+	ReleaseCharge = 100,
+	AutoRelease = false,
+	MeleeAura = false,
+	MeleeReach = 0,
+	AutoSwing = false,
+	AutoBlock = false,
+	BlockRadius = 4,
+	BlockFaceThreat = false,
+	AutoHeal = false,
+	HealThreshold = 45,
+	SlideHop = false,
+	SlideHopMode = "While Moving",
+	SlideHopDelay = 1,
+	SpeedBoost = false,
+	SpeedBoostMode = "Always",
+	SpeedBoostAmount = 15,
+	NoRecoil = false,
+	NoShake = false,
+	AutoQueue = false,
+	PlayerEsp = false,
+	HealthBars = true,
+	EspInfo = true,
+	PlayerTracers = false,
+	PlayerChams = false,
+	EspTeammates = false,
+	EspLobby = false,
+	EspMaxDistance = 600,
+	TrapEsp = false,
+	ShowFov = false,
+	AimPriority = "Crosshair",
+	AimHumanize = true,
+	RemoteBackstop = true,
+	AutoParry = false,
+	ParryRange = 14,
+	ParryProjectiles = true,
+	ParryPingComp = true,
+	AutoExecute = false,
+	TeleportKill = false,
+	TeleportTarget = "Nearest",
+	TeleportOffset = 3,
+	TeleportReturn = true,
+	AutoSwingFacing = true,
+	AutoSwingMinDistance = 0,
+	AuraPriority = "Closest",
+	HitboxExpander = false,
+	HitboxSize = 6,
+	AutoReload = false,
+	NoSlow = false,
+	EspHealthText = true,
+	TriggerDelay = 60,
+	TriggerLimbs = false,
+	TriggerCrosshair = true,
+}
+local LOADER_URL = "https://api.luarmor.net/files/v4/loaders/030c18901831a9df3ddf3b8bce0bf9cb.lua"
+local Core = {}
+function Core.solve(origin, position, velocity, speed, gravity, grounded)
+	if speed <= 0 then
+		return position, 0
+	end
+	local travel = (position - origin).Magnitude / speed
+	local point = position
+	for _ = 1, 12 do
+		local dy = velocity.Y * travel
+		dy = if grounded then math.clamp(dy, -2, 2) else math.clamp(dy, -9, 7)
+		local future = position + Vector3.new(velocity.X * travel, dy, velocity.Z * travel)
+		local aim = future + Vector3.new(0, 0.5 * gravity * travel * travel, 0)
+		local nextTravel = (aim - origin).Magnitude / speed
+		point = aim
+		if math.abs(nextTravel - travel) < 1e-4 then
+			travel = nextTravel
+			break
+		end
+		travel = nextTravel
+	end
+	return point, travel
+end
+function Core.reachable(origin, point, travel, speed)
+	return travel <= 5 and (point - origin).Magnitude <= 1200 and speed > 0
+end
+function Core.score(mode, offset, distance, health, maxHealth)
+	local fraction = math.clamp(health / math.max(maxHealth, 1), 0, 1)
+	if mode == "Lowest HP" then
+		return fraction * 1000 + offset * 0.01
+	elseif mode == "Closest" then
+		return distance + offset * 0.001
+	end
+	return offset + fraction * 0.001
+end
+function Core.spring(current, target, velocity, smoothness, dt)
+	local time = 0.02 + (smoothness / 100) * 0.4
+	local omega = 2 / time
+	local x = omega * dt
+	local decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+	local change = current - target
+	local temp = (velocity + omega * change) * dt
+	local newVelocity = (velocity - omega * temp) * decay
+	return target + (change + temp) * decay, newVelocity
+end
+function Core.wrapAngle(angle)
+	return (angle + math.pi) % (math.pi * 2) - math.pi
+end
+function Core.parryDelay(hitDelay, ping, compensate)
+	if not compensate then
+		return 0
+	end
+	return math.max(0, hitDelay - ping * 1.5 - 0.03)
+end
+function Core.parryHold(hitDelay, ping, grace)
+	return math.clamp(hitDelay + ping * 2 + (grace or 0.1) + 0.25, 0.25, 1.4)
+end
+function Core.facing(look, offset, arcDeg, distance, minDistance)
+	if distance < math.max(3.2, minDistance) then
+		return true
+	end
+	local flat = Vector3.new(offset.X, 0, offset.Z)
+	local view = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 0.05 or view.Magnitude < 0.05 then
+		return true
+	end
+	return flat.Unit:Dot(view.Unit) >= math.cos(math.rad(arcDeg))
+end
+function Core.shotPayload(action, payload, direction)
+	if
+		(action == "Shoot" or action == "Hurl")
+		and type(payload) == "table"
+		and typeof(payload.dir) == "Vector3"
+		and typeof(direction) == "Vector3"
+	then
+		payload.dir = direction.Unit
+		return true
+	end
+	return false
+end
+function Core.behind(targetCF, offset)
+	return targetCF * CFrame.new(0, 0, offset)
+end
+function Core.segmentClear(cast, from, to, isTarget, passable)
+	local skip = {}
+	local origin = from
+	for _ = 1, 8 do
+		local delta = to - origin
+		if delta.Magnitude < 0.05 then
+			return true, false
+		end
+		local hit = cast(origin, delta, skip)
+		if not hit then
+			return true, false
+		end
+		if isTarget(hit.Instance) then
+			return true, true
+		end
+		if not passable(hit.Instance) then
+			return false, false
+		end
+		table.insert(skip, hit.Instance)
+		origin = hit.Position
+	end
+	return false, false
+end
+function Core.arcClear(cast, origin, velocity, gravity, travel, isTarget, passable)
+	local steps = math.clamp(math.ceil(travel / 0.04), 4, 48)
+	local previous = origin
+	for index = 1, steps do
+		local t = travel * index / steps
+		local point = origin + velocity * t - Vector3.new(0, 0.5 * gravity * t * t, 0)
+		local clear, reached = Core.segmentClear(cast, previous, point, isTarget, passable)
+		if not clear then
+			return false
+		end
+		if reached then
+			return true
+		end
+		previous = point
+	end
+	return true
+end
+function Core.reacted(seenAt, now, delayMs)
+	return seenAt ~= nil and now - seenAt >= math.max(0, delayMs) / 1000
+end
 local Shared = getgenv().__PivotTribs
 if type(Shared) ~= "table" then
 	Shared = {}
 	getgenv().__PivotTribs = Shared
 end
 Shared.Originals = type(Shared.Originals) == "table" and Shared.Originals or {}
-
 local op = {
 	shot = nil,
 	meleeDirection = nil,
 	handler = nil,
-	triggerHeld = false,
+	triggerHeld = nil,
 	triggerAt = 0,
-	triggerWait = 0,
-	triggerReleaseAt = 0,
-	triggerModel = nil,
-	blockHeld = false,
-	slideHeld = false,
+	blockHeld = nil,
 	heal = nil,
 	threatUntil = 0,
 	threatFrom = nil,
 	velocities = {},
-	preCharge = nil,
-	matchKey = nil,
-	pruneAt = 0,
-	hopAt = 0,
-	bobApplied = false,
+	hooked = false,
 }
 function op.guard(name, fn, ...)
-	local packed = table.pack(xpcall(fn, function(message)
+	local results = table.pack(xpcall(fn, function(message)
 		return debug.traceback(tostring(message), 2)
 	end, ...))
-	if packed[1] then
-		return table.unpack(packed, 1, packed.n)
+	if results[1] then
+		return table.unpack(results, 1, results.n)
 	end
+	local message = tostring(results[2])
 	local errors = Shared.Errors
 	if type(errors) ~= "table" then
 		errors = {}
 		Shared.Errors = errors
 	end
 	local previous = errors[name]
-	errors[name] = { message = tostring(packed[2]), at = tick(), count = (previous and previous.count or 0) + 1 }
-	return false
+	errors[name] = { message = message, at = os.clock(), count = (previous and previous.count or 0) + 1 }
+	return false, message
 end
-
-local U = {}
-function U.now()
-	return tick()
-end
-function U.attr(inst, name)
-	if typeof(inst) ~= "Instance" then
-		return nil
-	end
-	local ok, value = pcall(inst.GetAttribute, inst, name)
-	if ok then
-		return value
-	end
-	return nil
-end
-function U.child(parent, name, timeout)
-	if typeof(parent) ~= "Instance" then
-		return nil
-	end
-	local found = parent:FindFirstChild(name)
-	if found then
-		return found
-	end
-	local ok, value = pcall(parent.WaitForChild, parent, name, timeout or K.Wait)
-	if ok then
-		return value
-	end
-	return nil
-end
-function U.connect(signal, fn)
-	if not signal then
-		return nil
-	end
-	local ok, conn = pcall(function()
-		return signal:Connect(function(...)
-			if Pivot.Running then
-				op.guard("signal", fn, ...)
-			end
-		end)
-	end)
-	if ok and conn then
-		table.insert(Pivot.Connections, conn)
-		return conn
-	end
-	return nil
-end
-function U.mouseHeld(button)
-	local ok, held = pcall(UserInputService.IsMouseButtonPressed, UserInputService, button)
-	return ok and held == true
-end
-
-local LocalScripts = LocalPlayer:FindFirstChild("PlayerScripts")
-if not LocalScripts then
-	local ok, found = pcall(LocalPlayer.WaitForChild, LocalPlayer, "PlayerScripts", K.Wait)
-	LocalScripts = ok and found or nil
-end
-
 local MODULES = {
-	Util = { LocalScripts, "Combat.Util" },
-	Controller = { LocalScripts, "Combat.Controller" },
-	Presentation = { LocalScripts, "Combat.Presentation" },
-	Bow = { LocalScripts, "Combat.Handlers.Bow" },
-	Gun = { LocalScripts, "Combat.Handlers.Gun" },
-	Melee = { LocalScripts, "Combat.Handlers.Melee" },
-	Throw = { LocalScripts, "Combat.Handlers.Throw" },
-	Use = { LocalScripts, "Combat.Handlers.Use" },
-	InputStats = { LocalScripts, "Core.InputStats" },
+	Util = { PlayerScripts, "Combat.Util" },
+	Controller = { PlayerScripts, "Combat.Controller" },
+	Bow = { PlayerScripts, "Combat.Handlers.Bow" },
+	Gun = { PlayerScripts, "Combat.Handlers.Gun" },
+	Melee = { PlayerScripts, "Combat.Handlers.Melee" },
+	Throw = { PlayerScripts, "Combat.Handlers.Throw" },
+	Use = { PlayerScripts, "Combat.Handlers.Use" },
 	Combat = { ReplicatedStorage, "Shared.Combat" },
 	Weapons = { ReplicatedStorage, "Shared.Weapons" },
 	Camera = { ReplicatedStorage, "Shared.Camera" },
 	Simulation = { ReplicatedStorage, "Shared.Simulation" },
-	Ballistics = { ReplicatedStorage, "Shared.Ballistics" },
 	Config = { ReplicatedStorage, "Shared.Config" },
-	AnimGuard = { ReplicatedStorage, "Shared.AnimGuard" },
+	Presentation = { PlayerScripts, "Combat.Presentation" },
 }
 local moduleCache = {}
 local moduleRetry = {}
@@ -240,78 +271,40 @@ local function mod(name)
 	if cached then
 		return cached
 	end
-	if tick() < (moduleRetry[name] or 0) then
+	if os.clock() < (moduleRetry[name] or 0) then
 		return nil
 	end
 	local entry = MODULES[name]
-	if not entry then
-		return nil
-	end
 	local node = entry[1]
 	for part in entry[2]:gmatch("[^%.]+") do
 		node = node and node:FindFirstChild(part)
-	end
-	if not node and name == "Ballistics" then
-		local combat = mod("Combat")
-		if type(combat) == "table" and type(combat.Ballistics) == "table" then
-			moduleCache[name] = combat.Ballistics
-			return combat.Ballistics
-		end
-	end
-	if typeof(node) ~= "Instance" then
-		moduleRetry[name] = tick() + 2
-		return nil
 	end
 	local ok, result = pcall(require, node)
 	if ok and type(result) == "table" then
 		moduleCache[name] = result
 		return result
 	end
-	moduleRetry[name] = tick() + 2
+	moduleRetry[name] = os.clock() + 2
 	return nil
 end
-
+local function okValue(fn, ...)
+	local ok, value = pcall(fn, ...)
+	return ok and value or nil
+end
 local function character()
 	local model = LocalPlayer.Character
 	return (model and model.Parent) and model or nil
 end
 local function rootOf(model)
-	if typeof(model) ~= "Instance" then
-		return nil
-	end
-	local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+	local root = model and model:FindFirstChild("HumanoidRootPart")
 	return (root and root:IsA("BasePart")) and root or nil
 end
 local function humanoidOf(model)
-	return (typeof(model) == "Instance" and model:FindFirstChildOfClass("Humanoid")) or nil
+	return model and model:FindFirstChildOfClass("Humanoid") or nil
 end
 local function isAlive(model)
 	local humanoid = humanoidOf(model)
-	if not humanoid or humanoid.Health <= 0 then
-		return false
-	end
-	if U.attr(model, "Alive") == false then
-		return false
-	end
-	local player = Players:GetPlayerFromCharacter(model)
-	if player and U.attr(player, "Alive") == false then
-		return false
-	end
-	if humanoid.PlatformStand == true then
-		return false
-	end
-	local ok, state = pcall(humanoid.GetState, humanoid)
-	if ok
-		and (
-			state == Enum.HumanoidStateType.Dead
-			or state == Enum.HumanoidStateType.Physics
-			or state == Enum.HumanoidStateType.Ragdoll
-			or state == Enum.HumanoidStateType.FallingDown
-		)
-	then
-		return false
-	end
-	return true
+	return humanoid ~= nil and humanoid.Health > 0
 end
 local function modelOf(instance)
 	if typeof(instance) ~= "Instance" then
@@ -322,470 +315,463 @@ local function modelOf(instance)
 	end
 	return instance:IsA("Model") and instance or nil
 end
-local function camera()
-	return Workspace.CurrentCamera
+local function mouseHeld(button)
+	return UserInputService:IsMouseButtonPressed(button)
 end
-local function ping()
-	local stats = mod("Util")
-	if stats and type(stats.Ping) == "function" then
-		local ok, value = pcall(stats.Ping)
-		if ok and type(value) == "number" and value >= 0 then
-			return math.min(value, 1)
-		end
+local function dispatch(action, down)
+	local controller = mod("Controller")
+	if controller and type(controller.Dispatch) == "function" then
+		pcall(controller.Dispatch, action, down)
 	end
-	local ok, item = pcall(function()
-		return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
-	end)
-	if ok and type(item) == "number" then
-		return math.clamp(item / 1000, 0, 1)
-	end
-	return 0.05
 end
-
-local Core = {}
-function Core.dirChecksum(dir)
-	return dir.X * 3 + dir.Y * 5 + dir.Z * 7
+local function tap(action)
+	dispatch(action, true)
+	task.defer(dispatch, action, false)
 end
-function Core.shotPayload(action, payload, direction)
-	if typeof(direction) ~= "Vector3" or direction.Magnitude < 0.001 then
-		return
-	end
-	payload.dir = direction.Unit
-	payload.q = Core.dirChecksum(payload.dir)
-end
-function Core.spring(current, target, velocity, smoothness, dt)
-	local time = 0.02 + (smoothness / 100) * 0.4
-	local omega = 2 / math.max(time, 0.0001)
-	local x = omega * dt
-	local decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
-	local change = current - target
-	local temp = (velocity + omega * change) * dt
-	local newVel = (velocity - omega * temp) * decay
-	local newPos = target + (change + temp) * decay
-	return newPos, newVel
-end
-function Core.facing(look, origin, target, arcDeg, distance, minDistance)
-	local flat = (target - origin) * K.Flat
-	local mag = flat.Magnitude
-	if mag < (minDistance or 0) then
-		return true
-	end
-	if distance and mag > distance then
-		return false
-	end
-	local flatLook = (look * K.Flat)
-	if flatLook.Magnitude < 0.001 then
-		return false
-	end
-	local dot = flatLook.Unit:Dot(flat.Unit)
-	return dot >= math.cos(math.rad(arcDeg) / 2)
-end
-function Core.parryDelay(hitDelay, pingValue, compensate)
-	local comp = compensate and (1.5 * pingValue) or 0
-	return math.max(0, (hitDelay or 0.1) - comp - 0.03)
-end
-function Core.parryHold(hitDelay, pingValue, grace, compensate)
-	local comp = compensate and (2 * pingValue) or 0
-	return math.clamp((hitDelay or 0.1) + comp + (grace or 0) + 0.25, 0.25, 1.4)
-end
-function Core.reachable(travel, speed)
-	if not speed or speed <= 0 then
-		return false
-	end
-	return travel / speed <= K.MaxTravel and travel <= K.MaxRange
-end
-function Core.behind(targetRoot, offset)
-	local cframe = targetRoot.CFrame
-	local back = cframe.LookVector * -math.clamp(offset or 3, 1.5, 6)
-	return targetRoot.Position + back
-end
-function Core.reacted(seenAt, now, delayMs)
-	if not seenAt then
-		return false
-	end
-	return (now - seenAt) * 1000 >= (delayMs or 0)
-end
-
 local Targets = {}
-function Targets.relation(model)
+function Targets.list()
 	local util = mod("Util")
-	if util then
-		if type(util.IsTeammate) == "function" then
-			local ok, teammate = pcall(util.IsTeammate, model)
-			if ok and teammate then
-				return "ally"
-			end
-		end
-		if type(util.IsEnemy) == "function" then
-			local ok, enemy = pcall(util.IsEnemy, model)
-			if ok and enemy then
-				return "enemy"
-			end
-		end
-	end
-	local own = character()
-	local mine = own and Players:GetPlayerFromCharacter(own)
-	local theirs = Players:GetPlayerFromCharacter(model)
-	if mine and theirs and mine.Team and theirs.Team then
-		return mine.Team == theirs.Team and "ally" or "enemy"
-	end
-	local ownerA = U.attr(model, "OwnerUserId") or U.attr(model, "UserId")
-	if theirs == nil and ownerA == nil then
-		return "enemy"
-	end
-	return "enemy"
+	local list = util and okValue(util.Targets)
+	return type(list) == "table" and list or {}
 end
 function Targets.hittable(model)
-	return model ~= nil and model ~= character() and isAlive(model)
+	local util = mod("Util")
+	if not util or not isAlive(model) or Targets.down(model) then
+		return false
+	end
+	return okValue(util.CanPredictHit, model) == true
 end
-function Targets.list()
-	local seen = {}
-	local out = {}
-	local function add(model)
-		if typeof(model) == "Instance" and model:IsA("Model") and not seen[model] then
-			seen[model] = true
-			table.insert(out, model)
-		end
+function Targets.relation(model)
+	local util = mod("Util")
+	if util and okValue(util.IsEnemy, model) then
+		return "enemy"
 	end
-	for _, player in Players:GetPlayers() do
-		if player ~= LocalPlayer and player.Character then
-			add(player.Character)
-		end
+	if util and okValue(util.IsTeammate, model) then
+		return "ally"
 	end
-	for _, tag in { "Combatant", "Bot", "TrainingDummy" } do
-		local ok, tagged = pcall(CollectionService.GetTagged, CollectionService, tag)
-		if ok and type(tagged) == "table" then
-			for _, inst in tagged do
-				add(modelOf(inst) or inst)
-			end
-		end
-	end
-	return out
+	return "neutral"
 end
-
 local Sight = {}
-function Sight.params(skip)
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local list = { camera() }
+local CORE_POINTS = { "Head", "UpperTorso", "Torso", "HumanoidRootPart" }
+local LIMB_POINTS = {
+	"LeftUpperArm",
+	"RightUpperArm",
+	"LeftUpperLeg",
+	"RightUpperLeg",
+	"Left Arm",
+	"Right Arm",
+	"Left Leg",
+	"Right Leg",
+}
+function Sight.exclusions(skip)
+	local list = {}
 	local own = character()
 	if own then
 		table.insert(list, own)
 	end
-	local fx = Workspace:FindFirstChild("FX")
-	if fx then
-		table.insert(list, fx)
+	local camera = Workspace.CurrentCamera
+	if camera then
+		table.insert(list, camera)
 	end
-	local projectiles = Workspace:FindFirstChild("Projectiles")
-	if projectiles then
-		table.insert(list, projectiles)
-	end
-	for _, model in Targets.list() do
-		if Targets.relation(model) == "ally" and model ~= skip then
-			table.insert(list, model)
+	for _, name in { "FX", "Projectiles" } do
+		local folder = Workspace:FindFirstChild(name)
+		if folder then
+			table.insert(list, folder)
 		end
 	end
-	params.FilterDescendantsInstances = list
-	return params
+	local util = mod("Util")
+	local mates = util and okValue(util.Teammates)
+	if type(mates) == "table" then
+		for _, mate in mates do
+			table.insert(list, mate)
+		end
+	end
+	for _, instance in skip do
+		table.insert(list, instance)
+	end
+	return list
 end
 function Sight.cast(origin, direction, skip)
-	local ok, result = pcall(Workspace.Raycast, Workspace, origin, direction, Sight.params(skip))
-	if ok then
-		return result
-	end
-	return nil
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = Sight.exclusions(skip)
+	params.IgnoreWater = true
+	return Workspace:Raycast(origin, direction, params)
 end
-function Sight.clear(origin, target, model)
-	local delta = target - origin
-	local dist = delta.Magnitude
-	if dist < 0.1 then
-		return true
-	end
-	local hit = Sight.cast(origin, delta, model)
-	if not hit then
-		return true
-	end
-	return hit.Instance:IsDescendantOf(model)
+function Sight.passable(_instance)
+	return false
 end
-function Sight.arcClear(origin, target, model, speed, gravity)
-	if not speed or speed <= 0 or not gravity or gravity <= 0 then
-		return Sight.clear(origin, target, model)
+function Sight.matcher(model)
+	return function(instance)
+		return instance:IsDescendantOf(model)
 	end
-	local delta = target - origin
-	local flat = delta * K.Flat
-	local dist = flat.Magnitude
-	local time = dist / speed
-	if time <= 0 then
-		return Sight.clear(origin, target, model)
+end
+function Sight.points(model, first, limbs)
+	local points = {}
+	if typeof(first) == "Vector3" then
+		table.insert(points, first)
 	end
-	local vy = (delta.Y + 0.5 * gravity * time * time) / time
-	local steps = math.clamp(math.floor(dist / 6), 4, 48)
-	local prev = origin
-	for i = 1, steps do
-		local t = (i / steps) * time
-		local point = origin + flat.Unit * (speed * t) + Vector3.new(0, vy * t - 0.5 * gravity * t * t, 0)
-		local hit = Sight.cast(prev, point - prev, model)
-		if hit and not hit.Instance:IsDescendantOf(model) then
-			return false
+	for _, name in CORE_POINTS do
+		local part = model:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			table.insert(points, part.Position)
 		end
-		prev = point
 	end
-	return true
+	if limbs then
+		for _, name in LIMB_POINTS do
+			local part = model:FindFirstChild(name)
+			if part and part:IsA("BasePart") then
+				table.insert(points, part.Position)
+			end
+		end
+	end
+	return points
 end
-
-local function dispatch(action, down)
-	local controller = mod("Controller")
-	if controller and type(controller.Dispatch) == "function" then
-		op.guard("dispatch", controller.Dispatch, action, down)
-		return true
-	end
-	if action ~= "Primary" then
+function Sight.line(origin, model, point)
+	local combat = mod("Combat")
+	if combat and okValue(combat.SmokeBlocks, origin, point) then
 		return false
 	end
-	if down then
-		if type(mouse1press) == "function" then
-			local ok = pcall(mouse1press)
-			return ok == true
+	local clear = Core.segmentClear(Sight.cast, origin, point, Sight.matcher(model), Sight.passable)
+	return clear
+end
+function Sight.arc(origin, model, aimPoint, speed, gravity)
+	if gravity <= 0 or speed <= 0 then
+		return Sight.line(origin, model, aimPoint)
+	end
+	local delta = aimPoint - origin
+	if delta.Magnitude < 0.05 then
+		return true
+	end
+	local travel = math.min(delta.Magnitude / speed * 1.25 + 0.05, 5)
+	return Core.arcClear(Sight.cast, origin, delta.Unit * speed, gravity, travel, Sight.matcher(model), Sight.passable)
+end
+function Targets.visible(origin, model, point, limbs)
+	for _, candidate in Sight.points(model, point, limbs) do
+		if Sight.line(origin, model, candidate) then
+			return true
 		end
-		if type(mouse1click) == "function" then
-			local ok = pcall(mouse1click)
-			return ok == true
-		end
-	elseif type(mouse1release) == "function" then
-		local ok = pcall(mouse1release)
-		return ok == true
 	end
 	return false
 end
-local function tap(action)
-	if dispatch(action, true) then
-		task.delay(0.05, function()
-			if Pivot.Running then
-				dispatch(action, false)
-			end
-		end)
+local DOWN_STATES = {
+	[Enum.HumanoidStateType.Dead] = true,
+	[Enum.HumanoidStateType.Physics] = true,
+	[Enum.HumanoidStateType.Ragdoll] = true,
+	[Enum.HumanoidStateType.FallingDown] = true,
+}
+function Targets.down(model)
+	local humanoid = humanoidOf(model)
+	if not humanoid or humanoid.Health <= 0 or humanoid.PlatformStand or DOWN_STATES[humanoid:GetState()] then
+		return true
 	end
+	local player = Players:GetPlayerFromCharacter(model)
+	if player and player:GetAttribute("Alive") == false then
+		return true
+	end
+	return false
 end
-
-local function headOf(model)
-	local head = model:FindFirstChild("Head")
-	return (head and head:IsA("BasePart")) and head or nil
-end
-local function aimPart(model)
-	if Config.AimPart == "Head" then
-		local head = headOf(model)
-		if head then
+function Targets.aimPart(model)
+	if Settings.AimPart == "Head" then
+		local head = model:FindFirstChild("Head")
+		if head and head:IsA("BasePart") then
 			return head
 		end
 	end
-	local root = rootOf(model)
-	if root then
-		return root
+	local torso = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso")
+	if torso and torso:IsA("BasePart") then
+		return torso
 	end
-	for _, part in model:GetChildren() do
-		if part:IsA("BasePart") then
-			return part
-		end
-	end
-	return nil
+	return rootOf(model)
 end
-local function onScreen(worldPos)
-	local cam = camera()
-	if not cam then
-		return false, nil, math.huge
+function Targets.onScreen(origin)
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return nil, nil
 	end
-	local ok, point, visible = pcall(cam.WorldToViewportPoint, cam, worldPos)
-	if not ok or not visible or point.Z <= 0 then
-		return false, nil, math.huge
-	end
-	local center = cam.ViewportSize / 2
-	local flat = Vector2.new(point.X - center.X, point.Y - center.Y)
-	return true, flat, flat.Magnitude
-end
-
-local Ballistics = {}
-function Ballistics.isGun(kind)
-	return kind == "Crossbow" or kind == "Musket" or kind == "Pistol" or kind == "Blunderbuss"
-end
-function Ballistics.profile(kind, tuning, charge, override)
-	local combat = mod("Combat")
-	local speed = override
-	local gravity = K.ThrowGravity
-	if type(tuning) == "table" then
-		if kind == "Hatchets" then
-			speed = speed or K.HatchetSpeed
-			gravity = 0
-		elseif tuning.returns then
-			speed = speed or tuning.speed or 90
-			gravity = 0
-		elseif combat and type(combat.DrawnShot) == "function" and (kind == "Bow" or tuning.drawTime) then
-			local _ok, _dmg, drawnSpeed = pcall(combat.DrawnShot, tuning, charge or 1)
-			speed = speed or drawnSpeed or tuning.speed
-			gravity = tuning.gravity or K.ThrowGravity
-		else
-			if combat and type(combat.ShotSpeed) == "function" then
-				local ok, value = pcall(combat.ShotSpeed, tuning)
-				if ok and value then
-					speed = speed or value
-				end
-			end
-			speed = speed or tuning.speed or tuning.speedMax
-			gravity = tuning.gravity or K.ThrowGravity
-		end
-	end
-	return speed, gravity or 0
-end
-function Ballistics.velocity(model, root)
-	local now = tick()
-	local entry = op.velocities[model]
-	local physical = root.AssemblyLinearVelocity
-	if typeof(physical) ~= "Vector3" then
-		physical = Vector3.zero
-	end
-	if not entry or entry.root ~= root then
-		entry = { root = root, pos = root.Position, vel = physical, at = now }
-		op.velocities[model] = entry
-		return physical
-	end
-	local dt = now - entry.at
-	if dt > 0.0001 then
-		local delta = (root.Position - entry.pos) / dt
-		entry.vel = entry.vel * 0.5 + delta * 0.5
-		entry.pos = root.Position
-		entry.at = now
-	end
-	return entry.vel * 0.5 + physical * 0.5
-end
-function Ballistics.intercept(origin, model, part, speed, gravity)
-	local root = rootOf(model) or part
-	local target = part.Position
-	if not speed or speed <= 0 then
-		return target
-	end
-	local vel = Ballistics.velocity(model, root)
-	local factor = Config.AutoPrediction and 1 or math.clamp(Config.Prediction / 100, 0, 1.5)
-	vel = vel * factor
-	local predicted = target
-	for _ = 1, K.SolveSteps do
-		local flat = (predicted - origin) * K.Flat
-		local dist = flat.Magnitude
-		local travel = dist / speed
-		predicted = target + vel * travel
-		if gravity and gravity > 0 then
-			predicted = predicted + Vector3.new(0, 0.5 * gravity * travel * travel, 0)
-		end
-	end
-	return predicted
-end
-
-local function activeHandlerState(action, payload)
-	local handler = op.handler
-	if not (handler and handler.tuning) then
-		return nil
-	end
-	local kind = handler.ctx and handler.ctx.kind
-	local tuning = (action == "Hurl") and handler.tuning.throw or handler.tuning
-	return {
-		kind = (action == "Hurl") and "Hatchets" or kind,
-		tuning = tuning,
-		charge = Config.FullCharge and 1 or (tonumber(payload and payload.charge) or 1),
-		shotId = tonumber(payload and payload.id),
-		gun = action == "Shoot" and Ballistics.isGun(kind),
-		handler = handler,
-	}
-end
-local function silentDirection(origin)
-	local shot = op.shot
-	if not shot then
-		local handler = op.handler
-		if not (handler and handler.tuning) then
-			return nil
-		end
-		shot = {
-			kind = handler.ctx and handler.ctx.kind,
-			tuning = handler.tuning,
-			charge = Config.FullCharge and 1 or 1,
-			gun = Ballistics.isGun(handler.ctx and handler.ctx.kind),
-			handler = handler,
-		}
-	end
-	local speed, gravity = Ballistics.profile(shot.kind, shot.tuning, shot.charge, shot.overrideSpeed)
-	local best, bestScore
+	local viewport = camera.ViewportSize
+	local center = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
+	local eye = origin or camera.CFrame.Position
+	local bestModel, bestPart, bestScore = nil, nil, math.huge
 	for _, model in Targets.list() do
-		if Targets.relation(model) == "enemy" and Targets.hittable(model) then
-			local part = aimPart(model)
-			if part then
-				local okScreen, _, px = onScreen(part.Position)
-				if okScreen and px <= Config.AimFov then
-					local predicted = Ballistics.intercept(origin, model, part, speed, gravity)
-					local reach = (predicted - origin).Magnitude
-					if Core.reachable(reach, speed) then
-						local clear = not Config.VisibleCheck
-							or Sight.arcClear(origin, predicted, model, speed, gravity)
-						if clear then
-							local score = px
-							if Config.AimPriority == "Closest" then
-								score = reach
-							elseif Config.AimPriority == "Lowest HP" then
-								local hum = humanoidOf(model)
-								score = hum and hum.Health or reach
-							end
-							if not bestScore or score < bestScore then
-								bestScore = score
-								best = predicted
-							end
+		if Targets.hittable(model) and Targets.relation(model) ~= "ally" then
+			local part = Targets.aimPart(model)
+			local humanoid = humanoidOf(model)
+			if part and humanoid then
+				local screen, visibleOnScreen = camera:WorldToViewportPoint(part.Position)
+				if visibleOnScreen then
+					local offset = (Vector2.new(screen.X, screen.Y) - center).Magnitude
+					if offset <= Settings.AimFov then
+						local score = Core.score(
+							Settings.AimPriority,
+							offset,
+							(part.Position - eye).Magnitude,
+							humanoid.Health,
+							humanoid.MaxHealth
+						)
+						if
+							score < bestScore
+							and (not Settings.VisibleCheck or Targets.visible(eye, model, part.Position))
+						then
+							bestModel, bestPart, bestScore = model, part, score
 						end
 					end
 				end
 			end
 		end
 	end
-	if best then
-		local dir = (best - origin)
-		if dir.Magnitude > 0.001 then
-			local result = dir.Unit
-			if op.shot then
-				op.shot.silentDir = result
+	return bestModel, bestPart
+end
+function Targets.melee(handler, range)
+	local ctx = handler and handler.ctx
+	local root = ctx and ctx.root
+	if not (root and root.Parent) then
+		return nil
+	end
+	local myPos = root.Position
+	local head = ctx.char and ctx.char:FindFirstChild("Head")
+	local meleeEye = if head and head:IsA("BasePart") then head.Position else myPos + Vector3.new(0, 1.5, 0)
+	local myVel = root.AssemblyLinearVelocity
+	local hitDelay = math.clamp(handler.tuning and handler.tuning.hitDelay or 0.08, 0.04, 0.16)
+	local best, bestScore = nil, math.huge
+	for _, model in Targets.list() do
+		if Targets.hittable(model) then
+			local theirRoot = rootOf(model)
+			local theirHumanoid = humanoidOf(model)
+			if theirRoot and theirHumanoid then
+				local theirPos = theirRoot.Position
+				local offset = theirPos - myPos
+				local distance = offset.Magnitude
+				local predOffset = (theirPos + theirRoot.AssemblyLinearVelocity * hitDelay) - (myPos + myVel * hitDelay)
+				local predDistance = predOffset.Magnitude
+				local effectiveDistance = math.min(distance, predDistance)
+				local pointBlank = distance < 3.2
+				local score = if Settings.AuraPriority == "Lowest HP"
+					then theirHumanoid.Health * 10 + effectiveDistance
+					else effectiveDistance
+				if
+					distance <= range + 0.35
+					and distance >= Settings.AutoSwingMinDistance
+					and score < bestScore
+					and math.abs(offset.Y) < 8
+					and (pointBlank or Sight.line(meleeEye, model, theirPos))
+				then
+					best, bestScore = theirRoot, score
+				end
 			end
-			return result
 		end
 	end
-	return nil
+	return best
 end
-local function probePass(...)
-	local util = mod("Util")
-	if util and type(util.Probe) == "function" then
-		local ok, value = pcall(util.Probe, ...)
-		if ok and value ~= nil then
-			return true, value
+local Ballistics = {}
+local installRemoteBackstop
+function Ballistics.isGun(kind)
+	local combat = mod("Combat")
+	return combat ~= nil and okValue(combat.UsesAmmo, kind) == true
+end
+local DRAWN_THROWS = { Javelin = true, Harpoon = true, Bomb = true }
+local THROWN = { Knives = true, Javelin = true, Harpoon = true, Sling = true, Chakram = true, Bomb = true }
+function Ballistics.profile(kind, tuning, charge, overrideSpeed)
+	local combat = mod("Combat")
+	if not combat or type(tuning) ~= "table" then
+		return overrideSpeed or 0, 0
+	end
+	if type(overrideSpeed) == "number" and overrideSpeed > 0 then
+		local grav = type(tuning.returns) == "table" and 0 or (tuning.gravity or 60)
+		return overrideSpeed, grav
+	end
+	if kind == "Bow" or DRAWN_THROWS[kind] then
+		local _, speed = combat.DrawnShot(tuning, charge or 1)
+		return speed, tuning.gravity or 60
+	end
+	if kind == "Hatchets" then
+		return tuning.speed or 120, tuning.gravity or 0
+	end
+	if THROWN[kind] then
+		if type(tuning.returns) == "table" then
+			return combat.ShotSpeed(tuning), 0
+		end
+		return combat.ShotSpeed(tuning), tuning.gravity or 60
+	end
+	return combat.ShotSpeed(tuning), tuning.gravity or 0
+end
+function Ballistics.velocity(model, root)
+	if not root then
+		return Vector3.zero
+	end
+	local raw = root.AssemblyLinearVelocity
+	local now = os.clock()
+	local entry = op.velocities[model]
+	if entry and entry.root == root then
+		local dt = now - entry.at
+		if dt >= 0.008 and dt <= 0.25 then
+			local deltaVel = (root.Position - entry.pos) / dt
+			local blended = raw:Lerp(deltaVel, 0.35)
+			entry.vel = entry.vel:Lerp(blended, math.clamp(dt * 18, 0.2, 1))
+			entry.pos = root.Position
+			entry.at = now
+		elseif dt > 0.25 then
+			entry.vel = raw
+			entry.pos = root.Position
+			entry.at = now
+		end
+	else
+		entry = { root = root, pos = root.Position, vel = raw, at = now }
+		op.velocities[model] = entry
+	end
+	return entry.vel
+end
+function Ballistics.intercept(origin, model, part, speed, gravity)
+	local position = part.Position
+	if speed <= 0 then
+		return position
+	end
+	local root = rootOf(model)
+	local humanoid = humanoidOf(model)
+	local scale = Settings.Prediction / 100
+	local velocity = Ballistics.velocity(model, root) * scale
+	local grounded = humanoid == nil or humanoid.FloorMaterial ~= Enum.Material.Air
+	local point, travel = Core.solve(origin, position, velocity, speed, gravity, grounded)
+	if not Core.reachable(origin, point, travel, speed) then
+		return position
+	end
+	return point
+end
+local function compensateGunSpread(handler, desiredDir)
+	local combat = mod("Combat")
+	local controller = mod("Controller")
+	if not (combat and controller and handler and handler.tuning) then
+		return desiredDir
+	end
+	local kind = handler.ctx and handler.ctx.kind
+	if kind == "Blunderbuss" or type(combat.SpreadDir) ~= "function" or type(handler.Seed) ~= "function" then
+		return desiredDir
+	end
+	local state = okValue(controller.State)
+	local shotId = (type(state) == "table" and tonumber(state.shotId) or 0) + 1
+	local seed = okValue(handler.Seed, handler, shotId)
+	if type(seed) ~= "number" then
+		return desiredDir
+	end
+	local spread = handler.aiming and (handler.tuning.spreadAim or 0) or (handler.tuning.spreadHip or 0)
+	if not handler.aiming then
+		local root = handler.ctx and handler.ctx.root
+		local vel = root and root.AssemblyLinearVelocity or Vector3.zero
+		if Vector3.new(vel.X, 0, vel.Z).Magnitude > 2 then
+			spread += (handler.tuning.spreadMove or 1.8)
 		end
 	end
-	return false, nil
+	if spread <= 0 then
+		return desiredDir
+	end
+	local compensated = desiredDir
+	for _ = 1, 3 do
+		local spreadOut = okValue(combat.SpreadDir, compensated, spread, seed, 0)
+		if typeof(spreadOut) ~= "Vector3" then
+			break
+		end
+		local corrected = compensated + (desiredDir - spreadOut)
+		if corrected.Magnitude > 0.001 then
+			compensated = corrected.Unit
+		end
+	end
+	return compensated
 end
+local function handlerCharge(handler)
+	if (handler.drawing or handler.winding) and type(handler.Charge) == "function" then
+		return handler:Charge()
+	end
+	return 1
+end
+local function silentDirection(origin)
+	local shot = op.shot
+	if not (Pivot.Running and Settings.SilentAim and shot) then
+		return nil
+	end
+	if typeof(shot.silentDir) == "Vector3" then
+		return shot.silentDir
+	end
+	if shot.rolled then
+		return nil
+	end
+	shot.rolled = true
+	if Settings.HitChance < 100 and math.random(1, 100) > Settings.HitChance then
+		return nil
+	end
+	local model, part = Targets.onScreen(origin)
+	if not part then
+		return nil
+	end
+	local speed, gravity = Ballistics.profile(shot.kind, shot.tuning, shot.charge, shot.speed)
+	local aimPoint = Ballistics.intercept(origin, model, part, speed, gravity)
+	local delta = aimPoint - origin
+	if delta.Magnitude <= 0.001 then
+		return nil
+	end
+	local direction = delta.Unit
+	if shot.gun and shot.handler then
+		direction = compensateGunSpread(shot.handler, direction)
+	end
+	shot.origin = origin
+	shot.silentDir = direction
+	return direction
+end
+local function within(state, original, ...)
+	local previous = op.shot
+	op.shot = state
+	local results = table.pack(pcall(original, ...))
+	op.shot = previous
+	if not results[1] then
+		error(results[2], 0)
+	end
+	return table.unpack(results, 2, results.n)
+end
+local PURE_HOOKS = {
+	["Util.AimDirection"] = true,
+	["Util.AssistDirection"] = true,
+	["Util.AimPoint"] = true,
+	["Util.GetAimRay"] = true,
+	["Util.Recoil"] = true,
+	["Util.RecoilSlow"] = true,
+	["Util.Shake"] = true,
+	["Combat.MoveSpeed"] = true,
+	["Melee.Detect"] = true,
+}
+local canHookFunction = type(hookfunction) == "function" and type(newcclosure) == "function"
 local function hook(moduleName, key, build)
 	local target = mod(moduleName)
 	if not target or type(target[key]) ~= "function" then
 		return false
 	end
 	local id = moduleName .. "." .. key
+	if PURE_HOOKS[id] and canHookFunction then
+		local live = target[key]
+		local stored = Shared.Originals[id]
+		if stored and stored ~= live then
+			target[key] = stored
+			live = stored
+		end
+		local holder = {}
+		local wrapper = newcclosure(function(...)
+			return holder.fn(...)
+		end)
+		local ok, original = pcall(hookfunction, live, wrapper)
+		if ok and type(original) == "function" then
+			holder.fn = build(original)
+			table.insert(Pivot.Restore, function()
+				holder.fn = original
+				pcall(hookfunction, live, original)
+			end)
+			return true
+		end
+	end
 	local original = Shared.Originals[id] or target[key]
 	Shared.Originals[id] = original
-	local replacement = build(original)
-	target[key] = type(newcclosure) == "function" and newcclosure(replacement) or replacement
+	target[key] = build(original)
 	table.insert(Pivot.Restore, function()
 		target[key] = original
 	end)
 	return true
-end
-local function within(state, original, ...)
-	local previous = op.shot
-	op.shot = state
-	local packed = table.pack(pcall(original, ...))
-	op.shot = previous
-	if not packed[1] then
-		error(packed[2], 0)
-	end
-	return table.unpack(packed, 2, packed.n)
 end
 local function trackHandler(original)
 	return function(self, ...)
@@ -799,102 +785,12 @@ local function dropHandler(original)
 	return function(self, ...)
 		if op.handler == self then
 			op.handler = nil
-			op.preCharge = nil
 		end
 		return original(self, ...)
 	end
 end
-
-local VALID_CALLER_MT = {
-	__index = function()
-		return true
-	end,
-}
-local function syncInputStatsWatches()
-	local inputStats = mod("InputStats")
-	if not inputStats then
-		return
-	end
-	local getups = (type(debug) == "table" and type(debug.getupvalues) == "function" and debug.getupvalues)
-		or (type(getupvalues) == "function" and getupvalues)
-	local setup = (type(debug) == "table" and type(debug.setupvalue) == "function" and debug.setupvalue)
-		or (type(setupvalue) == "function" and setupvalue)
-	if type(getups) ~= "function" then
-		return
-	end
-	for _, key in { "Take", "Watch", "Caller" } do
-		local fn = Shared.Originals["guard:InputStats." .. key] or inputStats[key]
-		if type(fn) == "function" then
-			local ok, ups = pcall(getups, fn)
-			if ok and type(ups) == "table" then
-				for idx, uv in ups do
-					if type(uv) == "number" and type(setup) == "function" then
-						pcall(setup, fn, idx, 0)
-					elseif type(uv) == "table" and uv ~= inputStats and uv.BodyVelocity == nil then
-						if #uv == 1 and type(uv[1]) == "number" then
-							uv[1] = 0
-						elseif type(uv[1]) == "table" and uv[1].t ~= nil and uv[1].k ~= nil then
-							for _, item in uv do
-								if type(item) == "table" and type(item.t) == "table" and item.k ~= nil then
-									item.f = rawget(item.t, item.k)
-								end
-							end
-						elseif key == "Caller" and uv[1] == nil then
-							pcall(setmetatable, uv, VALID_CALLER_MT)
-						end
-					end
-				end
-			end
-		end
-	end
-end
-local function persistentSet(moduleName, key, fn)
-	local target = mod(moduleName)
-	if not target or type(target[key]) ~= "function" then
-		return false
-	end
-	local id = "guard:" .. moduleName .. "." .. key
-	if Shared.Originals[id] == nil then
-		Shared.Originals[id] = target[key]
-	end
-	target[key] = type(newcclosure) == "function" and newcclosure(fn) or fn
-	return true
-end
-local function neutralizeGuards()
-	local inputStats = mod("InputStats")
-	if inputStats then
-		syncInputStatsWatches()
-		persistentSet("InputStats", "Take", function()
-			return 0
-		end)
-		for _, key in { "Caller", "Note", "Watch", "Start" } do
-			persistentSet("InputStats", key, function()
-				return nil
-			end)
-		end
-		syncInputStatsWatches()
-	end
-	local simulation = mod("Simulation")
-	if simulation and type(simulation.OnForeignWrite) == "function" then
-		pcall(simulation.OnForeignWrite, nil)
-		persistentSet("Simulation", "OnForeignWrite", function()
-			return nil
-		end)
-	end
-	local animGuard = mod("AnimGuard")
-	if animGuard and type(animGuard.Watch) == "function" then
-		persistentSet("AnimGuard", "Watch", function()
-			return nil
-		end)
-	end
-	if inputStats then
-		Shared.GuardsDone = true
-	end
-	return inputStats ~= nil
-end
-
-local isMelee, isRanged
-local function installRemoteBackstop()
+local isMelee
+function installRemoteBackstop()
 	if
 		type(checkcaller) ~= "function"
 		or type(hookmetamethod) ~= "function"
@@ -909,73 +805,40 @@ local function installRemoteBackstop()
 		return false
 	end
 	Shared.WeaponAction = weaponAction
-	Shared.AnimRelay = remotes:FindFirstChild("AnimRelay")
-	Shared.AnalyticsReport = remotes:FindFirstChild("AnalyticsReport")
-	Shared.ProfileAction = remotes:FindFirstChild("ProfileAction")
-	Shared.ChargeFilter = function(action, payload)
-		if action == "Charge" and type(payload) == "table" then
-			if payload.on == true then
-				local pre = op.preCharge
-				if
-					Config.FullCharge
-					and pre
-					and pre.tool == payload.tool
-					and pre.kind == payload.kind
-					and tick() - pre.at < 8
-				then
-					return true
-				end
-				op.preCharge = { tool = payload.tool, kind = payload.kind, at = tick() }
-			else
-				op.preCharge = nil
-			end
-		elseif action == "Shoot" then
-			op.preCharge = nil
-		end
-		return false
-	end
 	Shared.Backstop = function(self, action, payload)
-		if self ~= Shared.WeaponAction or type(payload) ~= "table" then
+		if self ~= Shared.WeaponAction or not (Pivot.Running and Settings.SilentAim and Settings.RemoteBackstop) then
 			return
 		end
-		if action == "Shoot" and Config.FullCharge and type(payload.charge) == "number" then
-			payload.charge = 1
+		if type(payload) ~= "table" or typeof(payload.origin) ~= "Vector3" then
+			return
 		end
-		if
-			action == "Swing"
-			and (Config.MeleeAura or Config.AutoSwing)
-			and type(payload.hits) == "table"
-			and payload.hits[1]
-		then
-			local theirRoot = rootOf(modelOf(payload.hits[1]) or payload.hits[1])
-			local myRoot = rootOf(character())
-			if theirRoot and myRoot then
-				local flat = (theirRoot.Position - myRoot.Position) * K.Flat
-				if flat.Magnitude > 0.05 then
-					payload.dir = flat.Unit
-				end
-			end
+		local shot = op.shot
+		if shot and typeof(shot.silentDir) == "Vector3" then
+			Core.shotPayload(action, payload, shot.silentDir)
+			return
 		end
-		if
-			Config.SilentAim
-			and Config.RemoteBackstop
-			and typeof(payload.origin) == "Vector3"
-			and (action == "Shoot" or action == "Hurl")
-		then
-			local shot = op.shot
-			local direction = shot and shot.silentDir
-			if typeof(direction) ~= "Vector3" then
-				local state = activeHandlerState(action, payload)
-				if state then
-					direction = within(state, silentDirection, payload.origin)
-				end
-			end
-			if typeof(direction) == "Vector3" then
-				Core.shotPayload(action, payload, direction)
-			end
+		if action ~= "Shoot" and action ~= "Hurl" then
+			return
 		end
-		if typeof(payload.dir) == "Vector3" then
-			payload.q = Core.dirChecksum(payload.dir)
+		local handler = op.handler
+		if not (handler and handler.tuning) then
+			return
+		end
+		local kind = handler.ctx and handler.ctx.kind
+		local tuning = if action == "Hurl" then handler.tuning.throw else handler.tuning
+		local state = {
+			kind = if action == "Hurl" then "Hatchets" else kind,
+			tuning = tuning,
+			charge = tonumber(payload.charge) or 1,
+			gun = action == "Shoot" and Ballistics.isGun(kind),
+			handler = handler,
+		}
+		local previous = op.shot
+		op.shot = state
+		local ok, direction = pcall(silentDirection, payload.origin)
+		op.shot = previous
+		if ok and typeof(direction) == "Vector3" then
+			Core.shotPayload(action, payload, direction)
 		end
 	end
 	if Shared.NamecallInstalled then
@@ -987,37 +850,10 @@ local function installRemoteBackstop()
 		game,
 		"__namecall",
 		newcclosure(function(self, ...)
-			if not checkcaller() then
-				local method = getnamecallmethod()
-				if method == "FireServer" and self == Shared.WeaponAction and Shared.Backstop then
-					local action = select(1, ...)
-					local payload = select(2, ...)
-					local filter = Shared.ChargeFilter
-					if filter and (action == "Charge" or action == "Shoot") then
-						local ok, drop = pcall(filter, action, payload)
-						if ok and drop then
-							return nil
-						end
-					end
-					pcall(Shared.Backstop, self, action, payload)
-				elseif method == "FireServer" and Shared.Backstop then
-					if self == Shared.AnimRelay and select("#", ...) >= 6 and select(6, ...) ~= 0 then
-						local a1, a2, a3, a4, a5 = ...
-						return oldNamecall(self, a1, a2, a3, a4, a5, 0)
-					elseif
-						self == Shared.AnalyticsReport
-						and select("#", ...) >= 3
-						and select(1, ...) == "Fps"
-						and select(3, ...) ~= 0
-					then
-						local a1, a2 = ...
-						return oldNamecall(self, a1, a2, 0)
-					end
-				elseif method == "InvokeServer" and Shared.Backstop and self == Shared.ProfileAction then
-					if select("#", ...) >= 3 and select(1, ...) == "AckReveal" and select(3, ...) ~= 0 then
-						local a1, a2 = ...
-						return oldNamecall(self, a1, a2, 0)
-					end
+			if not checkcaller() and getnamecallmethod() == "FireServer" then
+				local backstop = Shared.Backstop
+				if backstop and self == Shared.WeaponAction then
+					pcall(backstop, self, ...)
 				end
 			end
 			return oldNamecall(self, ...)
@@ -1025,44 +861,11 @@ local function installRemoteBackstop()
 	)
 	return true
 end
-
-local MELEE_KINDS = {
-	Fists = true,
-	Sword = true,
-	Axe = true,
-	Spear = true,
-	Dagger = true,
-	Club = true,
-	Shield = true,
-	Gauntlets = true,
-	Scythe = true,
-	Katana = true,
-	Hatchets = true,
-}
-function isMelee(kind)
-	return MELEE_KINDS[kind] == true
-end
-function isRanged(kind)
-	return kind ~= nil and not MELEE_KINDS[kind]
-end
-local function currentKind()
-	local handler = op.handler
-	return handler and handler.ctx and handler.ctx.kind or nil
-end
-local function handlerCharge(handler)
-	if handler and type(handler.Charge) == "function" then
-		local ok, value = pcall(handler.Charge, handler)
-		if ok and type(value) == "number" then
-			return value
-		end
-	end
-	return 1
-end
 local function updateMeleeDirection(root, theirRoot)
 	if not (root and theirRoot) then
 		return
 	end
-	local flat = (theirRoot.Position - root.Position) * K.Flat
+	local flat = (theirRoot.Position - root.Position) * Vector3.new(1, 0, 1)
 	if flat.Magnitude > 0.05 then
 		op.meleeDirection = flat.Unit
 		task.defer(function()
@@ -1070,9 +873,7 @@ local function updateMeleeDirection(root, theirRoot)
 		end)
 	end
 end
-
 local function installHooks()
-	op.guard("neutralizeGuards", neutralizeGuards)
 	local ready = mod("Util")
 		and mod("Combat")
 		and mod("Bow")
@@ -1085,44 +886,50 @@ local function installHooks()
 	end
 	hook("Util", "AimDirection", function(original)
 		return function(origin, ...)
-			local isProbe, value = probePass(origin, ...)
-			if isProbe then
-				return value
-			end
-			if Pivot.Running and Config.SilentAim and typeof(origin) == "Vector3" then
-				local dir = op.guard("silentAim", silentDirection, origin)
-				if typeof(dir) == "Vector3" then
-					return dir
-				end
+			local ok, direction = op.guard("silentAim", silentDirection, origin)
+			if ok and typeof(direction) == "Vector3" then
+				return direction
 			end
 			return original(origin, ...)
 		end
 	end)
 	hook("Util", "AssistDirection", function(original)
 		return function(origin, direction, ...)
-			if Pivot.Running and Config.SilentAim and op.shot and typeof(op.shot.silentDir) == "Vector3" then
+			if Pivot.Running and Settings.SilentAim and op.shot and typeof(op.shot.silentDir) == "Vector3" then
 				return op.shot.silentDir
 			end
 			return original(origin, direction, ...)
 		end
 	end)
+	hook("Util", "AimPoint", function(original)
+		return function(...)
+			if
+				Pivot.Running
+				and Settings.SilentAim
+				and op.shot
+				and op.shot.hurl
+				and typeof(op.shot.silentDir) == "Vector3"
+				and typeof(op.shot.origin) == "Vector3"
+			then
+				return op.shot.origin
+			end
+			return original(...)
+		end
+	end)
 	hook("Util", "GetAimRay", function(original)
 		return function(...)
-			local ray = original(...)
-			if Pivot.Running and op.meleeDirection and typeof(ray) == "Ray" then
-				return Ray.new(ray.Origin, op.meleeDirection * ray.Direction.Magnitude)
+			local direction = op.meleeDirection
+			if direction then
+				local ray = original(...)
+				return Ray.new(ray.Origin, direction)
 			end
-			return ray
+			return original(...)
 		end
 	end)
 	for _, key in { "Recoil", "RecoilSlow" } do
 		hook("Util", key, function(original)
 			return function(...)
-				local isProbe, value = probePass(...)
-				if isProbe then
-					return value
-				end
-				if Pivot.Running and Config.NoRecoil then
+				if Settings.NoRecoil and Pivot.Running then
 					return nil
 				end
 				return original(...)
@@ -1131,112 +938,96 @@ local function installHooks()
 	end
 	hook("Util", "Shake", function(original)
 		return function(...)
-			local isProbe, value = probePass(...)
-			if isProbe then
-				return value
-			end
-			if Pivot.Running and Config.NoShake then
+			if Settings.NoShake and Pivot.Running then
 				return nil
 			end
 			return original(...)
 		end
 	end)
 	hook("Combat", "MoveSpeed", function(original)
-		return function(weaponId, aim, charge, block, reload, use, ...)
-			local mult, penalty
-			if Pivot.Running and Config.NoSlow then
-				mult, penalty = original(weaponId, false, false, false, false, false, ...)
-			else
-				mult, penalty = original(weaponId, aim, charge, block, reload, use, ...)
-			end
-			if Pivot.Running and Config.SpeedBoost and type(mult) == "number" then
-				local mode = Config.SpeedBoostMode
-				local apply = mode == "Always"
-				if mode == "Melee Only" then
-					apply = isMelee(currentKind())
-				elseif mode == "Slide Hop Only" then
-					apply = Config.SlideHop
-				end
-				if apply then
-					mult = mult * (1 + math.clamp(Config.SpeedBoostAmount, 1, 40) / 100)
+		return function(weaponId, aiming, charging, blocking, reloading, using, ...)
+			local mult, noSlide = original(weaponId, aiming, charging, blocking, reloading, using, ...)
+			if Pivot.Running and Settings.NoSlow and type(mult) == "number" then
+				local base = original(weaponId, false, false, false, false, false)
+				if type(base) == "number" and base > mult then
+					mult = base
 				end
 			end
-			return mult, penalty
-		end
-	end)
-	hook("Combat", "SpreadDir", function(original)
-		return function(dir, spread, seed, index, ...)
-			if
-				Pivot.Running
-				and Config.NoSpread
-				and typeof(dir) == "Vector3"
-				and currentKind() ~= "Blunderbuss"
-			then
-				return dir
+			if not (Pivot.Running and Settings.SpeedBoost and type(mult) == "number") then
+				return mult, noSlide
 			end
-			return original(dir, spread, seed, index, ...)
+			local mode = Settings.SpeedBoostMode
+			if mode == "Melee Only" then
+				local combat = mod("Combat")
+				local kind = type(weaponId) == "string" and combat and okValue(combat.Kind, weaponId)
+				if not (kind and isMelee(kind)) then
+					return mult, noSlide
+				end
+			elseif mode == "Slide Hop Only" then
+				if not Settings.SlideHop then
+					return mult, noSlide
+				end
+			end
+			local boost = 1 + math.clamp(Settings.SpeedBoostAmount, 1, 40) / 100
+			return mult * boost, noSlide
 		end
 	end)
-	hook("Bow", "Charge", function(original)
+	hook("Gun", "Fire", function(original)
 		return function(self, ...)
-			if Pivot.Running and Config.FullCharge and self and type(self.drawStart) == "number" then
-				self.drawStart = tick() - 999
-			end
-			return original(self, ...)
+			local state = {
+				kind = self.ctx and self.ctx.kind,
+				tuning = self.tuning,
+				charge = 1,
+				gun = true,
+				handler = self,
+			}
+			return within(state, original, self, ...)
 		end
 	end)
-	hook("Throw", "Charge", function(original)
+	hook("Bow", "Fire", function(original)
 		return function(self, ...)
-			if Pivot.Running and Config.FullCharge and self and type(self.start) == "number" then
-				self.start = tick() - 999
-			end
-			return original(self, ...)
+			local actualCharge = math.clamp(self.drawing and self:Charge() or 1, 0, 1)
+			local state = {
+				kind = "Bow",
+				tuning = self.tuning,
+				charge = actualCharge,
+				handler = self,
+			}
+			return within(state, original, self, ...)
 		end
 	end)
-	for _, name in { "Gun", "Bow" } do
-		hook(name, "Fire", function(original)
-			return function(self, ...)
-				if Pivot.Running then
-					op.handler = self
-					local kind = self.ctx and self.ctx.kind
-					local state = {
-						kind = kind,
-						tuning = self.tuning,
-						charge = Config.FullCharge and 1 or handlerCharge(self),
-						gun = Ballistics.isGun(kind),
-						handler = self,
-					}
-					return within(state, original, self, ...)
-				end
-				return original(self, ...)
+	hook("Throw", "Launch", function(original)
+		return function(self, charge, assist, ...)
+			if not (assist and Pivot.Running and Settings.SilentAim) then
+				return original(self, charge, assist, ...)
 			end
-		end)
-	end
-	for _, key in { "Release", "Launch" } do
-		hook("Throw", key, function(original)
-			return function(self, ...)
-				if Pivot.Running then
-					op.handler = self
-					local state = {
-						kind = "Hatchets",
-						tuning = self.tuning and self.tuning.throw or self.tuning,
-						charge = Config.FullCharge and 1 or handlerCharge(self),
-						handler = self,
-					}
-					return within(state, original, self, ...)
-				end
-				return original(self, ...)
+			local origin, dir, speed = original(self, charge, assist, ...)
+			local state = {
+				kind = self.kind or (self.ctx and self.ctx.kind),
+				tuning = self.tuning,
+				charge = charge or 1,
+				speed = speed,
+				thrown = true,
+				handler = self,
+			}
+			local ok, silentDir = within(state, function()
+				return op.guard("silentAim", silentDirection, origin)
+			end)
+			if ok and typeof(silentDir) == "Vector3" then
+				return origin, silentDir, speed
 			end
-		end)
-	end
+			return origin, dir, speed
+		end
+	end)
 	hook("Melee", "Hurl", function(original)
 		return function(self, ...)
-			if Pivot.Running then
-				op.handler = self
+			local throwTuning = self.tuning and self.tuning.throw
+			if type(throwTuning) == "table" then
 				local state = {
 					kind = "Hatchets",
-					tuning = self.tuning and self.tuning.throw or self.tuning,
+					tuning = throwTuning,
 					charge = 1,
+					hurl = true,
 					handler = self,
 				}
 				return within(state, original, self, ...)
@@ -1246,1564 +1037,1384 @@ local function installHooks()
 	end)
 	hook("Melee", "ReleaseCharge", function(original)
 		return function(self, ...)
-			if Pivot.Running and Config.AutoRelease and self and type(self.chargeStart) == "number" then
-				self.chargeStart = tick() - 2
+			if Pivot.Running and (Settings.MeleeAura or Settings.AutoSwing) then
+				local baseRange = (self.tuning and self.tuning.range or 8) + 3
+				local reach = baseRange + (Settings.MeleeAura and Settings.MeleeReach or 0)
+				local ok, theirRoot = op.guard("meleeCharge", Targets.melee, self, reach)
+				if ok and theirRoot and self.ctx then
+					updateMeleeDirection(self.ctx.root, theirRoot)
+				end
 			end
 			return original(self, ...)
 		end
 	end)
 	hook("Melee", "Detect", function(original)
-		return function(self, range, arc, maxTargets, ...)
-			local isProbe, value = probePass(self, range, arc, maxTargets, ...)
-			if isProbe then
-				return value
+		return function(self, range, arc, maxTargets)
+			if Pivot.Running and (Settings.MeleeAura or Settings.AutoSwing) then
+				local reach = (range or 8) + (Settings.MeleeAura and Settings.MeleeReach or 0)
+				local ok, theirRoot = op.guard("meleeAura", Targets.melee, self, reach)
+				local root = self.ctx and self.ctx.root
+				if ok and theirRoot and root then
+					updateMeleeDirection(root, theirRoot)
+					local hits = original(self, reach, 180, maxTargets)
+					if type(hits) == "table" and hits[1] then
+						local firstRoot = rootOf(hits[1])
+						if firstRoot then
+							updateMeleeDirection(root, firstRoot)
+						end
+					end
+					return hits
+				end
 			end
-			if Pivot.Running and (Config.MeleeAura or Config.AutoSwing) then
-				range = (type(range) == "number" and range or 0) + Config.MeleeReach
-				arc = 180
-			end
-			return original(self, range, arc, maxTargets, ...)
+			return original(self, range, arc, maxTargets)
 		end
 	end)
 	for _, name in { "Bow", "Gun", "Melee", "Throw", "Use" } do
 		hook(name, "Update", trackHandler)
 		hook(name, "Unequip", dropHandler)
 	end
+	op.guard("remoteBackstop", installRemoteBackstop)
 	return true
 end
-
+local releaseTrigger, releaseBlock, releaseSlideHop
+function releaseTrigger()
+	if op.triggerHeld then
+		op.triggerHeld = nil
+		dispatch("Primary", false)
+	end
+end
+function releaseBlock()
+	if op.blockHeld then
+		op.blockHeld = nil
+		dispatch("Secondary", false)
+	end
+end
+function releaseSlideHop()
+	local simulation = mod("Simulation")
+	if simulation then
+		pcall(simulation.SetInput, "Slide", false)
+		pcall(simulation.SetInput, "Jump", false)
+	end
+end
+local nextAt = { hopSlide = 0, hopJump = 0, heal = 0, queue = 0, autoDraw = 0 }
 local function canAct()
 	local util = mod("Util")
-	if util and type(util.CanAct) == "function" then
-		local ok, value = pcall(util.CanAct)
-		if ok then
-			return value ~= false
-		end
-	end
-	return true
+	return util ~= nil and okValue(util.CanAct) == true
 end
-local function aimKeyDown()
-	if Config.AimbotKey == "Always" then
-		return true
-	end
-	return U.mouseHeld(Enum.UserInputType.MouseButton2)
+local function isRanged(kind)
+	local combat = mod("Combat")
+	return combat ~= nil and okValue(combat.FiresProjectile, kind) == true
 end
-local function scoreOf(model, part, origin, px)
-	if Config.AimPriority == "Closest" or Config.AuraPriority == "Closest" then
-		return (part.Position - origin).Magnitude
-	end
-	if Config.AimPriority == "Lowest HP" or Config.AuraPriority == "Lowest HP" then
-		local hum = humanoidOf(model)
-		return hum and hum.Health or px
-	end
-	return px
+function isMelee(kind)
+	local combat = mod("Combat")
+	return combat ~= nil and okValue(combat.IsMelee, kind) == true
 end
-local function pickEnemy(origin, requireVisible)
-	local best, bestPart, bestScore
-	for _, model in Targets.list() do
-		if Targets.relation(model) == "enemy" and Targets.hittable(model) then
-			local part = aimPart(model)
-			if part then
-				local okScreen, _, px = onScreen(part.Position)
-				if okScreen and px <= Config.AimFov then
-					if (not requireVisible) or Sight.clear(origin, part.Position, model) then
-						local score = scoreOf(model, part, origin, px)
-						if not bestScore or score < bestScore then
-							bestScore = score
-							best = model
-							bestPart = part
-						end
-					end
-				end
-			end
-		end
-	end
-	return best, bestPart
-end
-local function pickMelee(root, facingCheck)
-	local tuning = op.handler and op.handler.tuning
-	local reach = (tuning and (tuning.range or (tuning.lunge and tuning.lunge.range))) or 10
-	reach = reach + Config.MeleeReach + K.ReachBias
-	local best, bestScore
-	for _, model in Targets.list() do
-		if Targets.relation(model) == "enemy" and Targets.hittable(model) then
-			local tr = rootOf(model)
-			if tr then
-				local flat = (tr.Position - root.Position) * K.Flat
-				local d = flat.Magnitude
-				if d <= reach and math.abs(tr.Position.Y - root.Position.Y) < 8 then
-					local ok = true
-					if facingCheck then
-						ok = Core.facing(root.CFrame.LookVector, root.Position, tr.Position, 160, nil, 3.2)
-					end
-					if
-						ok
-						and d >= Config.AutoSwingMinDistance
-						and (d < 3.2 or Sight.clear(root.Position, tr.Position, model))
-					then
-						local score = Config.AuraPriority == "Lowest HP"
-								and (humanoidOf(model) and humanoidOf(model).Health or d)
-							or d
-						if not bestScore or score < bestScore then
-							bestScore = score
-							best = model
-						end
-					end
-				end
-			end
-		end
-	end
-	return best
-end
-local function pickTeleportTarget(root)
-	if Config.TeleportTarget == "Aim Target" then
-		local cam = camera()
-		if cam then
-			return (pickEnemy(cam.CFrame.Position, false))
-		end
-		return nil
-	end
-	local best, bestScore
-	for _, model in Targets.list() do
-		if Targets.relation(model) == "enemy" and Targets.hittable(model) then
-			local tr = rootOf(model)
-			if tr then
-				local score
-				if Config.TeleportTarget == "Lowest HP" then
-					local hum = humanoidOf(model)
-					score = hum and hum.Health or math.huge
-				else
-					score = (tr.Position - root.Position).Magnitude
-				end
-				if not bestScore or score < bestScore then
-					bestScore = score
-					best = model
-				end
-			end
-		end
-	end
-	return best
-end
-
 local function cameraAim(dt)
-	if not (Pivot.Running and Config.Aimbot and aimKeyDown()) then
+	if not (Pivot.Running and Settings.Aimbot) then
 		return
 	end
-	local cam = camera()
-	local own = character()
-	if not (cam and own and isAlive(own)) then
+	if Settings.AimbotKey == "Hold Right Mouse" and not mouseHeld(Enum.UserInputType.MouseButton2) then
 		return
 	end
-	local origin = cam.CFrame.Position
-	local model, part = pickEnemy(origin, Config.VisibleCheck)
-	if not (model and part) then
+	local cameraModule = mod("Camera")
+	if not cameraModule or not character() then
 		return
 	end
-	local aimPoint = part.Position
-	local kind = currentKind()
-	if isRanged(kind) and op.handler and op.handler.tuning then
-		local speed, gravity = Ballistics.profile(kind, op.handler.tuning, handlerCharge(op.handler))
-		aimPoint = Ballistics.intercept(origin, model, part, speed, gravity)
-	end
-	if Config.AimHumanize then
-		local jitter = 0.4
-		aimPoint = aimPoint
-			+ Vector3.new(
-				(math.random() - 0.5) * jitter,
-				(math.random() - 0.5) * jitter,
-				(math.random() - 0.5) * jitter
-			)
-	end
-	local targetCF = CFrame.lookAt(origin, aimPoint)
-	local alpha = math.clamp(1 - Config.AimSmoothness / 100, 0.02, 1)
-	cam.CFrame = cam.CFrame:Lerp(targetCF, alpha)
-end
-
-local TORSO_PARTS = {
-	UpperTorso = true,
-	LowerTorso = true,
-	Torso = true,
-	HumanoidRootPart = true,
-}
-local LIMB_PARTS = {
-	LeftArm = true,
-	RightArm = true,
-	LeftLeg = true,
-	RightLeg = true,
-	LeftUpperArm = true,
-	LeftLowerArm = true,
-	LeftHand = true,
-	RightUpperArm = true,
-	RightLowerArm = true,
-	RightHand = true,
-	LeftUpperLeg = true,
-	LeftLowerLeg = true,
-	LeftFoot = true,
-	RightUpperLeg = true,
-	RightLowerLeg = true,
-	RightFoot = true,
-}
-local function rollTriggerDelay()
-	local ms = tonumber(Config.TriggerDelay) or 0
-	ms = math.clamp(ms, 0, 180)
-	if ms <= 0 then
-		return 0
-	end
-	return ms * (0.6 + 0.4 * math.random())
-end
-local function releaseTriggerHold()
-	if op.triggerHeld then
-		dispatch("Primary", false)
-		op.triggerHeld = false
-	end
-	op.triggerReleaseAt = 0
-end
-local function isAllowedHitPart(part, model)
-	if typeof(part) ~= "Instance" then
-		return false
-	end
-	local combat = mod("Combat")
-	local current = part
-	while current and current ~= model do
-		if combat and type(combat.IsHeadPart) == "function" then
-			local ok, isHead = pcall(combat.IsHeadPart, current)
-			if ok and isHead then
-				return true
-			end
-		end
-		if current.Name == "Head" or TORSO_PARTS[current.Name] then
-			return true
-		end
-		if Config.TriggerLimbs and LIMB_PARTS[current.Name] then
-			return true
-		end
-		current = current.Parent
-	end
-	return false
-end
-local function triggerReady(handler)
-	if not handler then
-		return false
-	end
-	local kind = handler.ctx and handler.ctx.kind
-	if not isRanged(kind) then
-		return false
-	end
-	local tool = handler.ctx and handler.ctx.tool
-	if not (tool and tool.Parent) then
-		return false
-	end
-	if handler.reloading or U.attr(tool, "Reloading") == true then
-		return false
-	end
-	if type(handler.OutOfAmmo) == "function" then
-		local ok, empty = pcall(handler.OutOfAmmo, handler)
-		if ok and empty then
-			return false
-		end
-	end
-	if type(handler.ammo) == "number" and handler.ammo <= 0 then
-		return false
-	end
-	local wait = nil
-	if handler.tuning then
-		wait = handler.tuning.fireInterval or handler.nextCd or handler.tuning.cooldown
-	else
-		wait = handler.nextCd
-	end
-	if type(handler.lastShot) == "number" and type(wait) == "number" and os.clock() - handler.lastShot < wait then
-		return false
-	end
-	if not canAct() then
-		return false
-	end
-	local util = mod("Util")
-	if util and type(util.IsMouseUnlocked) == "function" then
-		local ok, unlocked = pcall(util.IsMouseUnlocked)
-		if ok and unlocked then
-			return false
-		end
-	end
-	if util and type(util.GuardRecovery) == "function" then
-		local ok, recover = pcall(util.GuardRecovery, tool)
-		if ok and type(recover) == "number" and recover > 0 then
-			return false
-		end
-	end
-	return true
-end
-local function peekTarget()
-	local util = mod("Util")
-	local combat = mod("Combat")
-	local result
-	if util and type(util.AimPoint) == "function" then
-		local ok, _, hit = pcall(util.AimPoint, 2000)
-		if ok and hit ~= nil and typeof(hit) == "RaycastResult" then
-			result = hit
-		elseif ok and hit ~= nil and type(hit) == "userdata" and hit.Instance then
-			result = hit
-		end
-	end
-	if not result then
-		local ray
-		local originalRay = Shared.Originals and Shared.Originals["Util.GetAimRay"]
-		if type(originalRay) == "function" then
-			local ok, value = pcall(originalRay)
-			if ok and typeof(value) == "Ray" then
-				ray = value
-			end
-		end
-		if not ray and util and type(util.GetAimRay) == "function" then
-			local ok, value = pcall(util.GetAimRay)
-			if ok and typeof(value) == "Ray" then
-				ray = value
-			end
-		end
-		if typeof(ray) ~= "Ray" then
-			local cam = camera()
-			if not cam then
-				return nil
-			end
-			local view = cam.ViewportSize
-			ray = cam:ViewportPointToRay(view.X / 2, view.Y / 2)
-		end
-		local params
-		if util and type(util.WorldParams) == "function" then
-			local extra
-			if type(util.Teammates) == "function" then
-				local ok, mates = pcall(util.Teammates)
-				if ok then
-					extra = mates
-				end
-			end
-			local ok, value = pcall(util.WorldParams, extra)
-			if ok then
-				params = value
-			end
-		end
-		local ok, hit = pcall(Workspace.Raycast, Workspace, ray.Origin, ray.Direction.Unit * 2000, params or Sight.params(nil))
-		if ok then
-			result = hit
-		end
-	end
-	if not (result and result.Instance) then
-		return nil
-	end
-	local model
-	if combat and type(combat.FindCharacter) == "function" then
-		local ok, found = pcall(combat.FindCharacter, result.Instance)
-		if ok then
-			model = found
-		end
-	end
-	if typeof(model) ~= "Instance" then
-		model = result.Instance:FindFirstAncestorOfClass("Model")
-	end
-	if not model or Targets.relation(model) ~= "enemy" or not Targets.hittable(model) then
-		return nil
-	end
-	if not isAllowedHitPart(result.Instance, model) then
-		return nil
-	end
-	local point = result.Position
-	local origin
-	if util and type(util.ShotOrigin) == "function" and op.handler and op.handler.ctx then
-		local ok, value = pcall(util.ShotOrigin, op.handler.ctx.tool, "Muzzle")
-		if ok and typeof(value) == "Vector3" then
-			origin = value
-		end
-	end
-	if typeof(origin) ~= "Vector3" then
-		local cam = camera()
-		origin = cam and cam.CFrame.Position or nil
-	end
-	if typeof(origin) == "Vector3" then
-		if combat and type(combat.SmokeBlocks) == "function" then
-			local ok, blocked = pcall(combat.SmokeBlocks, origin, point)
-			if ok and blocked then
-				return nil
-			end
-		end
-		if util and type(util.WorldParams) == "function" and type(util.Targets) == "function" then
-			local okTargets, targets = pcall(util.Targets)
-			local okParams, params = pcall(util.WorldParams, okTargets and targets or nil)
-			if okParams and params then
-				local delta = point - origin
-				local dist = delta.Magnitude
-				if dist > 0.15 then
-					local okHit, wall = pcall(Workspace.Raycast, Workspace, origin, delta.Unit * (dist - 0.1), params)
-					if okHit and wall then
-						return nil
-					end
-				end
-			end
-		elseif not Sight.clear(origin, point, model) then
-			return nil
-		end
-	end
-	return model, result.Instance
-end
-local function stepTrigger(now)
-	if not Config.Triggerbot then
-		releaseTriggerHold()
-		op.triggerModel = nil
-		op.triggerAt = 0
-		op.triggerWait = 0
+	local camera = Workspace.CurrentCamera
+	if not camera then
 		return
 	end
-	local own = character()
-	if not (own and isAlive(own) and canAct()) then
-		releaseTriggerHold()
+	local origin = camera.CFrame.Position
+	local model, part = Targets.onScreen(origin)
+	if not part then
+		op.aimSpring = nil
 		return
 	end
-	if not triggerReady(op.handler) then
-		if op.triggerHeld and not (op.handler and op.handler.drawing) then
-			releaseTriggerHold()
-		end
-		if not (op.handler and isRanged(currentKind())) then
-			releaseTriggerHold()
-			op.triggerModel = nil
-			op.triggerAt = 0
-			op.triggerWait = 0
-		end
-		return
-	end
-	if U.mouseHeld(Enum.UserInputType.MouseButton1) and not op.triggerHeld then
-		return
-	end
-	local model = peekTarget()
-	if not model then
-		releaseTriggerHold()
-		op.triggerModel = nil
-		op.triggerAt = 0
-		op.triggerWait = 0
-		return
-	end
-	if op.triggerModel ~= model then
-		op.triggerModel = model
-		op.triggerAt = now
-		op.triggerWait = rollTriggerDelay()
-		return
-	end
-	if not Core.reacted(op.triggerAt, now, op.triggerWait) then
-		return
-	end
-	local kind = currentKind()
-	if isRanged(kind) and op.handler and op.handler.tuning and op.handler.tuning.drawTime then
-		if not op.triggerHeld then
-			if dispatch("Primary", true) then
-				op.triggerHeld = true
-				op.triggerChargeAt = now
-			end
-		elseif
-			handlerCharge(op.handler) >= Config.ReleaseCharge / 100
-			or (now - (op.triggerChargeAt or now)) > 0.55 + math.random() * 0.2
-		then
-			releaseTriggerHold()
-			op.triggerModel = nil
-			op.triggerAt = 0
-			op.triggerWait = 0
-		end
-	else
-		if not op.triggerHeld then
-			if dispatch("Primary", true) then
-				op.triggerHeld = true
-				op.triggerReleaseAt = now + 0.04 + math.random() * 0.07
-			end
-		elseif now >= (op.triggerReleaseAt or now) then
-			releaseTriggerHold()
-			op.triggerAt = now
-			op.triggerWait = rollTriggerDelay()
-		end
-	end
-end
-
-local function stepPreCharge(now)
-	if not Config.FullCharge or not op.handler then
-		return
-	end
+	local point = part.Position
 	local handler = op.handler
-	if (handler.winds or handler.drawStart ~= nil) and not op.preCharge and isRanged(currentKind()) then
-		local send = handler.ctx and handler.ctx.send
-		if type(send) == "function" and handler.ctx.tool then
-			pcall(send, "Charge", { on = true, tool = handler.ctx.tool, kind = currentKind() })
+	if handler and handler.ctx and isRanged(handler.ctx.kind) then
+		local util = mod("Util")
+		local muzzle = util and okValue(util.ShotOrigin, handler.ctx.tool, "Muzzle")
+		local shotFrom = typeof(muzzle) == "Vector3" and muzzle or origin
+		local speed, gravity = Ballistics.profile(handler.ctx.kind, handler.tuning, handlerCharge(handler))
+		point = Ballistics.intercept(shotFrom, model, part, speed, gravity)
+	end
+	local direction = (point - origin).Unit
+	local yaw = math.atan2(-direction.X, -direction.Z)
+	local pitch = math.asin(math.clamp(direction.Y, -1, 1))
+	local currentYaw, currentPitch = cameraModule.GetYaw(), cameraModule.GetPitch()
+	local spring = op.aimSpring
+	if not spring or os.clock() - spring.at > 0.2 or spring.model ~= model then
+		spring = { yawVel = 0, pitchVel = 0, model = model, seed = math.random() * 100 }
+		op.aimSpring = spring
+	end
+	spring.at = os.clock()
+	if Settings.AimSmoothness <= 0 then
+		cameraModule.SetLook(yaw, pitch)
+		return
+	end
+	if Settings.AimHumanize then
+		local wobble = math.noise(spring.at * 1.3, spring.seed) * 0.004
+		yaw += wobble
+		pitch += math.noise(spring.seed, spring.at * 1.1) * 0.003
+	end
+	local deltaYaw = Core.wrapAngle(yaw - currentYaw)
+	local newYaw, yawVel = Core.spring(currentYaw, currentYaw + deltaYaw, spring.yawVel, Settings.AimSmoothness, dt)
+	local newPitch, pitchVel = Core.spring(currentPitch, pitch, spring.pitchVel, Settings.AimSmoothness, dt)
+	spring.yawVel, spring.pitchVel = yawVel, pitchVel
+	cameraModule.SetLook(newYaw, newPitch)
+end
+function Targets.triggerClear(handler, model, part)
+	if Targets.relation(model) == "ally" or Targets.down(model) then
+		return false
+	end
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return false
+	end
+	local eye = camera.CFrame.Position
+	if not Settings.SilentAim and Settings.TriggerCrosshair then
+		local viewport = camera.ViewportSize
+		local ray = camera:ViewportPointToRay(viewport.X * 0.5, viewport.Y * 0.5)
+		local _, reached = Core.segmentClear(
+			Sight.cast,
+			ray.Origin,
+			ray.Origin + ray.Direction * 1500,
+			Sight.matcher(model),
+			Sight.passable
+		)
+		if not reached then
+			return false
 		end
+	elseif not Targets.visible(eye, model, part.Position, Settings.TriggerLimbs) then
+		return false
 	end
+	local util = mod("Util")
+	local socket = if Ballistics.isGun(handler.ctx.kind) or handler.ctx.kind == "Bow" then "Muzzle" else "Tip"
+	local muzzle = util and okValue(util.ShotOrigin, handler.ctx.tool, socket)
+	local origin = typeof(muzzle) == "Vector3" and muzzle or eye
+	local speed, gravity = Ballistics.profile(handler.ctx.kind, handler.tuning, 1)
+	local aimPoint = Ballistics.intercept(origin, model, part, speed, gravity)
+	return Sight.arc(origin, model, aimPoint, speed, gravity)
 end
-
-local function stepAutoRelease(now)
-	if not Config.AutoRelease or not op.handler then
+local function stepTrigger()
+	local handler = op.handler
+	if not Settings.Triggerbot or not handler or not handler.ctx or not isRanged(handler.ctx.kind) then
+		releaseTrigger()
 		return
 	end
-	local kind = currentKind()
-	if
-		isRanged(kind)
-		and U.mouseHeld(Enum.UserInputType.MouseButton1)
-		and handlerCharge(op.handler) >= Config.ReleaseCharge / 100
-	then
-		dispatch("Primary", false)
-		task.delay(0.03, function()
-			if Pivot.Running and Config.AutoRelease and U.mouseHeld(Enum.UserInputType.MouseButton1) then
-				dispatch("Primary", true)
+	if op.triggerHeld and op.triggerHeld ~= handler then
+		op.triggerHeld = nil
+	end
+	local drawn = handler.ctx.kind == "Bow" or (handler.winds == true)
+	if op.triggerHeld then
+		if handler.drawing or handler.winding then
+			if handlerCharge(handler) >= Settings.ReleaseCharge / 100 then
+				releaseTrigger()
 			end
-		end)
-	end
-end
-
-local function stepAura(now)
-	if not (Config.MeleeAura or Config.AutoSwing) then
+		elseif os.clock() - op.triggerAt > 0.6 then
+			releaseTrigger()
+		end
 		return
 	end
-	local kind = currentKind()
-	if not isMelee(kind) then
+	if mouseHeld(Enum.UserInputType.MouseButton1) or not canAct() then
 		return
 	end
-	local own = character()
-	local root = rootOf(own)
-	if not (root and isAlive(own) and canAct()) then
+	if type(handler.Ready) == "function" and not handler:Ready() then
 		return
 	end
-	local facingCheck = Config.AutoSwing and Config.AutoSwingFacing and not Config.MeleeAura
-	local target = pickMelee(root, facingCheck)
-	if target then
-		updateMeleeDirection(root, rootOf(target))
+	if handler.reloading or (type(handler.ammo) == "number" and handler.ammo <= 0) then
+		return
+	end
+	local model, part = Targets.onScreen()
+	if not (part and Targets.triggerClear(handler, model, part)) then
+		op.triggerSeen = nil
+		return
+	end
+	local now = os.clock()
+	if not op.triggerSeen or op.triggerSeen.model ~= model then
+		op.triggerSeen = { model = model, at = now }
+	end
+	if not Core.reacted(op.triggerSeen.at, now, Settings.TriggerDelay) then
+		return
+	end
+	op.triggerSeen = nil
+	if drawn then
+		dispatch("Primary", true)
+		op.triggerHeld = handler
+		op.triggerAt = os.clock()
+	else
 		tap("Primary")
 	end
 end
-
-local function onCombatFX(kind, data)
-	if type(data) ~= "table" then
+local function stepAutoRelease()
+	local handler = op.handler
+	if not Settings.AutoRelease or not handler or op.triggerHeld then
 		return
 	end
-	local pos = data.position or data.origin or data.from
-	local source = data.character or data.attacker or data.model
-	if source and Targets.relation(modelOf(source) or source) ~= "enemy" then
+	if not mouseHeld(Enum.UserInputType.MouseButton1) then
 		return
 	end
-	local own = character()
-	local root = rootOf(own)
+	local drawn = (handler.ctx and handler.ctx.kind == "Bow") or (handler.winds == true)
+	if not drawn then
+		return
+	end
+	if handler.drawing or handler.winding then
+		local threshold = math.clamp(Settings.ReleaseCharge / 100, 0.4, 1)
+		if handlerCharge(handler) >= threshold then
+			dispatch("Primary", false)
+			nextAt.autoDraw = os.clock() + 0.06
+		end
+	elseif os.clock() >= nextAt.autoDraw and canAct() and (type(handler.Ready) ~= "function" or handler:Ready()) then
+		nextAt.autoDraw = os.clock() + 0.15
+		dispatch("Primary", true)
+	end
+end
+local function stepAutoSwing()
+	local handler = op.handler
+	if not Settings.AutoSwing or not handler or not handler.ctx or not isMelee(handler.ctx.kind) then
+		return
+	end
+	if handler.blocking or handler.parrying or handler.charging or not handler:Ready() or not canAct() then
+		return
+	end
+	local reach = (handler.tuning and handler.tuning.range or 8) + (Settings.MeleeAura and Settings.MeleeReach or 0)
+	local theirRoot = Targets.melee(handler, reach)
+	if theirRoot and Settings.AutoSwingFacing and not Settings.MeleeAura and handler.ctx.root then
+		local util = mod("Util")
+		local ray = util and okValue(util.GetAimRay)
+		local look = typeof(ray) == "Ray" and ray.Direction or handler.ctx.root.CFrame.LookVector
+		local offset = theirRoot.Position - handler.ctx.root.Position
+		local arc = handler.tuning and handler.tuning.arc or 60
+		if not Core.facing(look, offset, arc, offset.Magnitude, Settings.AutoSwingMinDistance) then
+			theirRoot = nil
+		end
+	end
+	if theirRoot then
+		if handler.ctx.root then
+			updateMeleeDirection(handler.ctx.root, theirRoot)
+		end
+		if type(handler.Swing) == "function" then
+			handler:Swing()
+		else
+			tap("Primary")
+		end
+	end
+end
+local function noteThreat(position, seconds)
+	op.threatUntil = math.max(op.threatUntil, os.clock() + seconds)
+	op.threatFrom = position
+end
+local function enemyRoot(instance)
+	local model = modelOf(instance)
+	if not model or model == character() or Targets.relation(model) ~= "enemy" then
+		return nil
+	end
+	return rootOf(model)
+end
+local function onCombatFx(kind, data)
+	if not (Pivot.Running and Settings.AutoBlock) or type(kind) ~= "string" or type(data) ~= "table" then
+		return
+	end
+	local root = rootOf(character())
 	if not root then
 		return
 	end
-	if typeof(pos) ~= "Vector3" then
-		local sr = rootOf(modelOf(source) or source)
-		pos = sr and sr.Position
-	end
-	if typeof(pos) ~= "Vector3" then
-		return
-	end
-	local dist = (pos - root.Position).Magnitude
-	local radius = Config.BlockRadius + 10
-	if kind == "Projectile" or kind == "ProjectileHit" then
-		radius = Config.BlockRadius + 6
-	elseif kind == "Swing" then
-		radius = 14
-	elseif kind == "Charge" or kind == "Heavy" or kind == "Lunge" then
-		radius = 20
-	end
-	if dist <= radius then
-		op.threatUntil = tick() + 0.35
-		op.threatFrom = pos
-		if Config.AutoParry then
-			op.parryDue = tick() + Core.parryDelay(0.12, ping(), Config.ParryPingComp)
-			op.parryUntil = op.parryDue + Core.parryHold(0.12, ping(), 0.05, Config.ParryPingComp)
-			op.parryFrom = pos
+	if kind == "Projectile" then
+		if not enemyRoot(data.shooter) then
+			return
 		end
-	end
-end
-
-local function stepAutoBlock(now)
-	if not Config.AutoBlock then
-		if op.blockHeld then
-			dispatch("Secondary", false)
-			op.blockHeld = false
+		if typeof(data.origin) ~= "Vector3" or typeof(data.velocity) ~= "Vector3" then
+			return
 		end
-		return
-	end
-	local active = now < op.threatUntil
-	if active and not op.blockHeld then
-		dispatch("Secondary", true)
-		op.blockHeld = true
-	elseif not active and op.blockHeld then
-		dispatch("Secondary", false)
-		op.blockHeld = false
-	end
-	if active and Config.BlockFaceThreat and typeof(op.threatFrom) == "Vector3" then
-		local sim = mod("Simulation")
-		local root = rootOf(character())
-		if sim and type(sim.SetFacing) == "function" and root then
-			local flat = (op.threatFrom - root.Position) * K.Flat
-			if flat.Magnitude > 0.1 then
-				pcall(sim.SetFacing, math.atan2(-flat.Unit.X, -flat.Unit.Z))
+		local gravity = tonumber(data.gravity) or 0
+		local target = root.Position
+		for frame = 1, 90 do
+			local t = frame / 60
+			local point = data.origin + data.velocity * t - Vector3.new(0, 0.5 * gravity * t * t, 0)
+			if (point - target).Magnitude <= Settings.BlockRadius then
+				noteThreat(data.origin, t + 0.25)
+				return
 			end
 		end
+	elseif kind == "Charge" then
+		local theirRoot = data.on and (data.kind == "Heavy" or data.kind == "Lunge") and enemyRoot(data.attacker)
+		if theirRoot and (theirRoot.Position - root.Position).Magnitude <= 20 then
+			noteThreat(theirRoot.Position, 1.2)
+		end
+	elseif kind == "Swing" then
+		local theirRoot = enemyRoot(data.attacker)
+		if theirRoot and (theirRoot.Position - root.Position).Magnitude <= 14 then
+			noteThreat(theirRoot.Position, 0.6)
+		end
 	end
 end
-
-local function stepParry(now)
-	if not Config.AutoParry or not op.parryDue then
-		return
-	end
+local function stepAutoBlock()
 	local handler = op.handler
-	if now >= op.parryDue and not op.parryActive then
-		op.parryActive = true
-		if handler and type(handler.RaiseParry) == "function" then
-			pcall(handler.RaiseParry, handler)
-		else
-			dispatch("Secondary", true)
-		end
-	end
-	if op.parryActive and now >= (op.parryUntil or 0) then
-		op.parryActive = false
-		op.parryDue = nil
-		if handler and type(handler.LowerParry) == "function" then
-			pcall(handler.LowerParry, handler)
-		else
-			dispatch("Secondary", false)
-		end
-	end
-end
-
-local function stepAutoHeal(now)
-	if not Config.AutoHeal then
-		return
-	end
-	local own = character()
-	local hum = humanoidOf(own)
-	if not (hum and isAlive(own)) then
-		return
-	end
-	if (hum.Health / math.max(hum.MaxHealth, 1)) * 100 >= Config.HealThreshold then
-		return
-	end
-	if now < (op.healAt or 0) then
-		return
-	end
-	op.healAt = now + 1.5
-	local combat = mod("Combat")
-	local toFind
-	for _, item in own:GetChildren() do
-		if item:IsA("Tool") then
-			local id = U.attr(item, "WeaponId")
-			if combat and type(combat.Kind) == "function" and id then
-				local ok, kind = pcall(combat.Kind, id)
-				if ok and kind == "Herbs" then
-					toFind = item
-					break
+	if Settings.AutoBlock and handler then
+		local myRoot = rootOf(character())
+		if myRoot then
+			for _, model in Targets.list() do
+				if Targets.hittable(model) then
+					local theirRoot = rootOf(model)
+					if theirRoot then
+						local dist = (theirRoot.Position - myRoot.Position).Magnitude
+						if dist <= 16 and theirRoot:GetAttribute("SDashF") ~= nil then
+							noteThreat(theirRoot.Position, 0.45)
+						end
+					end
 				end
 			end
 		end
 	end
-	if toFind then
-		tap("Primary")
+	local canDefend = handler ~= nil
+		and type(handler.tuning) == "table"
+		and (
+			type(handler.tuning.block) == "table"
+			or (
+				type(handler.tuning.parry) == "table"
+				and (handler.parrying or (type(handler.ParryReady) == "function" and handler:ParryReady()))
+			)
+		)
+	local wanted = Settings.AutoBlock and canDefend and os.clock() < op.threatUntil
+	if op.blockHeld and op.blockHeld ~= handler then
+		op.blockHeld = nil
 	end
-end
-
-local function stepSlideHop(now)
-	if not Config.SlideHop then
+	if not wanted then
+		releaseBlock()
 		return
 	end
-	local sim = mod("Simulation")
-	local own = character()
-	local root = rootOf(own)
-	if not (sim and root and isAlive(own) and type(sim.Pulse) == "function") then
-		return
+	if
+		not op.blockHeld
+		and not handler.blocking
+		and not handler.parrying
+		and not mouseHeld(Enum.UserInputType.MouseButton2)
+	then
+		dispatch("Secondary", true)
+		op.blockHeld = handler
 	end
-	local vel = root.AssemblyLinearVelocity
-	local moving = typeof(vel) == "Vector3" and (vel * K.Flat).Magnitude > 2
-	if Config.SlideHopMode == "While Moving" and not moving then
-		return
-	end
-	local slide = U.attr(root, "SSlide")
-	local cd = U.attr(root, "SSlideCD")
-	if (type(slide) ~= "number" or slide <= 0) and (type(cd) ~= "number" or cd <= 0) then
-		if now >= op.hopAt then
-			op.hopAt = now + math.max(Config.SlideHopDelay, 1) / 60
-			pcall(sim.Pulse, "Slide", 0.1)
-			pcall(sim.Pulse, "Jump", 0.08)
+	local cameraModule = mod("Camera")
+	local root = rootOf(character())
+	if Settings.BlockFaceThreat and op.threatFrom and cameraModule and root then
+		local flat = (op.threatFrom - root.Position) * Vector3.new(1, 0, 1)
+		if flat.Magnitude > 0.5 then
+			cameraModule.SetLook(math.atan2(-flat.X, -flat.Z), cameraModule.GetPitch())
 		end
 	end
 end
-
-local function stepBunnyHop(now)
-	if not Config.BunnyHop then
+local function healingTool(model)
+	local combat = mod("Combat")
+	local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+	for _, container in { model, backpack } do
+		if container then
+			for _, child in container:GetChildren() do
+				local id = child:IsA("Tool") and child:GetAttribute("WeaponId")
+				local charges = child:GetAttribute("Charges")
+				if
+					type(id) == "string"
+					and combat.Kind(id) == "Herbs"
+					and type(charges) == "number"
+					and charges >= 1
+				then
+					return child, id
+				end
+			end
+		end
+	end
+	return nil
+end
+local function stepAutoHeal(now)
+	local heal = op.heal
+	if heal then
+		if now >= heal.restoreAt then
+			op.heal = nil
+			local controller = mod("Controller")
+			if controller and heal.previous and heal.previous.Parent then
+				pcall(controller.Equip, heal.previous)
+			end
+		end
 		return
 	end
-	local own = character()
-	local hum = humanoidOf(own)
-	if not (hum and isAlive(own)) then
+	if not Settings.AutoHeal or now < nextAt.heal then
 		return
 	end
-	if now < (op.jumpAt or 0) then
+	local model = character()
+	local humanoid = humanoidOf(model)
+	local util, combat, controller = mod("Util"), mod("Combat"), mod("Controller")
+	if not (humanoid and util and combat and controller) or humanoid.Health <= 0 then
 		return
 	end
-	op.jumpAt = now + 0.1
-	local sim = mod("Simulation")
-	if sim and type(sim.Pulse) == "function" then
-		pcall(sim.Pulse, "Jump", 0.08)
-	else
-		pcall(function()
-			hum.Jump = true
-		end)
+	if humanoid.Health / math.max(humanoid.MaxHealth, 1) * 100 > Settings.HealThreshold then
+		return
+	end
+	if not util.InMatch() or not canAct() then
+		return
+	end
+	nextAt.heal = now + 1
+	local tool, id = healingTool(model)
+	if not tool then
+		return
+	end
+	local previous = model:FindFirstChildOfClass("Tool")
+	if previous == tool then
+		previous = nil
+	end
+	if not controller.Equip(tool) then
+		return
+	end
+	local useTime = combat.Tuning(id).useTime or 0.6
+	task.delay(0.12, function()
+		if Pivot.Running and tool.Parent == character() then
+			tap("Primary")
+		end
+	end)
+	op.heal = { previous = previous, restoreAt = now + 0.12 + useTime + 0.35 }
+	nextAt.heal = now + useTime + 1.5
+end
+local function stepSlideHop(now)
+	if not Settings.SlideHop then
+		return
+	end
+	local simulation = mod("Simulation")
+	local model = character()
+	local root, humanoid = rootOf(model), humanoidOf(model)
+	if not (simulation and root and humanoid) or humanoid.Health <= 0 or not canAct() then
+		return
+	end
+	if humanoid.MoveDirection.Magnitude < 0.2 then
+		return
+	end
+	if Settings.SlideHopMode == "Hold Space" and not UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+		return
+	end
+	if UserInputService:GetFocusedTextBox() then
+		return
+	end
+	local slide = root:GetAttribute("SSlide")
+	if slide ~= nil then
+		if type(slide) == "number" and slide >= Settings.SlideHopDelay and now >= nextAt.hopJump then
+			nextAt.hopJump = now + 0.18
+			simulation.Pulse("Jump", 0.05)
+		end
+	elseif humanoid.FloorMaterial ~= Enum.Material.Air then
+		if root:GetAttribute("SSlideCD") == nil then
+			if now >= nextAt.hopSlide then
+				nextAt.hopSlide = now + 0.16
+				simulation.Pulse("Slide", 0.06)
+			end
+		elseif now >= nextAt.hopJump then
+			local vel = root.AssemblyLinearVelocity
+			if Vector3.new(vel.X, 0, vel.Z).Magnitude > 22 then
+				nextAt.hopJump = now + 0.18
+				simulation.Pulse("Jump", 0.05)
+			end
+		end
 	end
 end
-
 local function stepAutoQueue(now)
-	if not Config.AutoQueue then
+	if not Settings.AutoQueue or now < nextAt.queue then
 		return
 	end
-	if now < (op.queueAt or 0) then
+	nextAt.queue = now + 6
+	if LocalPlayer:GetAttribute("State") == "Match" or LocalPlayer:GetAttribute("Queued") == true then
 		return
 	end
-	op.queueAt = now + 6
-	local own = character()
-	local matchId = own and U.attr(own, "MatchId")
-	if type(matchId) == "string" and matchId ~= "" then
+	if LocalPlayer:GetAttribute("Teleporting") == true then
+		return
+	end
+	local util = mod("Util")
+	if util and util.InMatch() then
 		return
 	end
 	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-	local qf = remotes and remotes:FindFirstChild("QueueAction")
-	if qf and qf:IsA("RemoteFunction") then
-		pcall(function()
-			qf:InvokeServer("Queue", "menu", nil, "3v3")
+	local remote = remotes and remotes:FindFirstChild("QueueAction")
+	if remote and remote:IsA("RemoteFunction") then
+		task.spawn(function()
+			op.guard("autoQueue", remote.InvokeServer, remote, "Queue", "menu", nil, "3v3")
 		end)
 	end
 end
-
-local function stepAutoReload(now)
-	if not Config.AutoReload then
-		return
+local Parry = { ids = nil, watch = {}, animators = {}, pendingUntil = 0, lowerAt = 0, nextScan = 0 }
+local SWING_PATTERNS = { "_Slash", "_Heavy", "_Dash", "_Stab", "_Swing", "_Lunge", "^Punch_" }
+local function swingAnimationIds()
+	if Parry.ids then
+		return Parry.ids
 	end
-	local handler = op.handler
-	if not (handler and Ballistics.isGun(currentKind())) then
-		return
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local folder = assets and assets:FindFirstChild("Animations")
+	if not folder then
+		return nil
 	end
-	if handler.reloading then
-		return
-	end
-	local ammo = handler.ammo
-	if type(ammo) == "number" and ammo <= 0 then
-		dispatch("Reload", true)
-		task.delay(0.05, function()
-			if Pivot.Running then
-				dispatch("Reload", false)
+	local presentation = mod("Presentation")
+	local ids = {}
+	for _, animation in folder:GetChildren() do
+		if animation:IsA("Animation") then
+			local name = animation.Name
+			local matched = false
+			for _, pattern in SWING_PATTERNS do
+				if name:find(pattern) then
+					matched = true
+					break
+				end
 			end
-		end)
+			if matched and not name:find("Hold") and not name:find("Draw") and not name:find("Parry") then
+				local id = animation.AnimationId:match("%d+")
+				if id then
+					local kind = name:match("^([^_]+)_")
+					local preset = presentation and kind and okValue(presentation.For, nil, kind)
+					local hitDelay = type(preset) == "table" and tonumber(preset.hitDelay) or 0.08
+					ids[id] = { name = name, hitDelay = hitDelay, heavy = name:find("_Heavy") ~= nil }
+				end
+			end
+		end
 	end
+	Parry.ids = ids
+	return ids
 end
-
-local hitboxOriginal = {}
-local function restoreHitbox(part)
-	local saved = hitboxOriginal[part]
-	if not saved then
+local function networkPing()
+	local ok, ping = pcall(LocalPlayer.GetNetworkPing, LocalPlayer)
+	return ok and type(ping) == "number" and math.clamp(ping, 0, 0.5) or 0.06
+end
+local function parryHandler()
+	local handler = op.handler
+	if handler and type(handler.tuning) == "table" and type(handler.tuning.parry) == "table" then
+		return handler
+	end
+	return nil
+end
+local function requestParry(hitDelay, source)
+	if not (Pivot.Running and Settings.AutoParry) then
 		return
 	end
-	hitboxOriginal[part] = nil
-	pcall(function()
-		if part and part.Parent then
-			part.Size = saved.size
-			part.CanCollide = saved.canCollide
-			part.Transparency = saved.transparency
+	local handler = parryHandler()
+	if not handler or handler.parrying or mouseHeld(Enum.UserInputType.MouseButton2) then
+		return
+	end
+	if type(handler.ParryReady) ~= "function" or not handler:ParryReady() then
+		return
+	end
+	local ping = networkPing()
+	local delay = Core.parryDelay(hitDelay, ping, Settings.ParryPingComp)
+	local hold = Core.parryHold(hitDelay, ping, handler.tuning.parry.grace)
+	local function raise()
+		if not (Pivot.Running and Settings.AutoParry) or op.handler ~= handler or handler.parrying then
+			return
 		end
+		if not handler:ParryReady() then
+			return
+		end
+		if source then
+			local cameraModule = mod("Camera")
+			local root = rootOf(character())
+			if cameraModule and root then
+				local flat = (source - root.Position) * Vector3.new(1, 0, 1)
+				if flat.Magnitude > 0.5 then
+					pcall(cameraModule.SetLook, math.atan2(-flat.X, -flat.Z), cameraModule.GetPitch())
+				end
+			end
+		end
+		handler:RaiseParry()
+		if handler.parrying then
+			Parry.lowerAt = os.clock() + hold
+			Parry.handler = handler
+		end
+	end
+	if delay > 0 then
+		task.delay(delay, raise)
+	else
+		raise()
+	end
+end
+local function stepParryLower()
+	local handler = Parry.handler
+	if not handler then
+		return
+	end
+	if not handler.parrying or op.handler ~= handler then
+		Parry.handler = nil
+		return
+	end
+	if os.clock() >= Parry.lowerAt and type(handler.LowerParry) == "function" then
+		Parry.handler = nil
+		handler:LowerParry(true)
+	end
+end
+local function onEnemyAnimation(model, track)
+	if not (Pivot.Running and Settings.AutoParry and parryHandler()) then
+		return
+	end
+	local animation = track.Animation
+	local id = animation and animation.AnimationId:match("%d+")
+	local ids = swingAnimationIds()
+	local info = id and ids and ids[id]
+	if not info then
+		return
+	end
+	local myRoot, theirRoot = rootOf(character()), rootOf(model)
+	if not (myRoot and theirRoot) or not Targets.hittable(model) or Targets.relation(model) == "ally" then
+		return
+	end
+	local ping = networkPing()
+	local closing = math.max(
+		0,
+		-(theirRoot.AssemblyLinearVelocity - myRoot.AssemblyLinearVelocity):Dot(
+				(theirRoot.Position - myRoot.Position).Unit
+			)
+	)
+	local reach = Settings.ParryRange + closing * ping * 2
+	if (theirRoot.Position - myRoot.Position).Magnitude > reach then
+		return
+	end
+	local look = theirRoot.CFrame.LookVector
+	if
+		not Core.facing(
+			look,
+			myRoot.Position - theirRoot.Position,
+			75,
+			(myRoot.Position - theirRoot.Position).Magnitude,
+			0
+		)
+	then
+		return
+	end
+	requestParry(info.hitDelay, theirRoot.Position)
+end
+local function watchModel(model)
+	if model == character() then
+		return
+	end
+	if Parry.watch[model] then
+		local bound = Parry.animators[model]
+		if bound and bound.Parent and bound:IsDescendantOf(model) then
+			return
+		end
+		Parry.watch[model]:Disconnect()
+		Parry.watch[model] = nil
+		Parry.animators[model] = nil
+	end
+	local humanoid = humanoidOf(model)
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		return
+	end
+	local connection = animator.AnimationPlayed:Connect(function(track)
+		op.guard("autoParry", onEnemyAnimation, model, track)
 	end)
+	Parry.watch[model] = connection
+	Parry.animators[model] = animator
+end
+local function stepParryWatch(now)
+	if not Settings.AutoParry then
+		if next(Parry.watch) then
+			for model, connection in Parry.watch do
+				connection:Disconnect()
+				Parry.watch[model] = nil
+			end
+			table.clear(Parry.animators)
+		end
+		return
+	end
+	stepParryLower()
+	if now < Parry.nextScan then
+		return
+	end
+	Parry.nextScan = now + 1
+	for model, connection in Parry.watch do
+		if not model.Parent then
+			connection:Disconnect()
+			Parry.watch[model] = nil
+			Parry.animators[model] = nil
+		end
+	end
+	for _, model in Targets.list() do
+		watchModel(model)
+	end
+end
+local function parryFromFx(kind, data)
+	if not (Pivot.Running and Settings.AutoParry and parryHandler()) or type(data) ~= "table" then
+		return
+	end
+	local root = rootOf(character())
+	if not root then
+		return
+	end
+	if kind == "Charge" and data.on and (data.kind == "Heavy" or data.kind == "Lunge") then
+		local theirRoot = enemyRoot(data.attacker)
+		if theirRoot and (theirRoot.Position - root.Position).Magnitude <= Settings.ParryRange + 6 then
+			requestParry(0.25, theirRoot.Position)
+		end
+	elseif kind == "Projectile" and Settings.ParryProjectiles then
+		if not enemyRoot(data.shooter) or typeof(data.origin) ~= "Vector3" or typeof(data.velocity) ~= "Vector3" then
+			return
+		end
+		local gravity = tonumber(data.gravity) or 0
+		for frame = 1, 120 do
+			local t = frame / 60
+			local point = data.origin + data.velocity * t - Vector3.new(0, 0.5 * gravity * t * t, 0)
+			if (point - root.Position).Magnitude <= 4.5 then
+				requestParry(t, data.origin)
+				return
+			end
+		end
+	end
+end
+local function stepAutoReload()
+	local handler = op.handler
+	if not (Settings.AutoReload and handler and handler.ctx) or type(handler.RequestReload) ~= "function" then
+		return
+	end
+	if handler.reloading or type(handler.ammo) ~= "number" or type(handler.magazine) ~= "number" then
+		return
+	end
+	if handler.ammo >= handler.magazine or mouseHeld(Enum.UserInputType.MouseButton1) then
+		return
+	end
+	local idle = os.clock() - (handler.lastShot or 0)
+	if handler.ammo <= 0 or idle > 1.2 then
+		if type(handler.OutOfAmmo) == "function" and handler:OutOfAmmo() then
+			return
+		end
+		handler:RequestReload()
+	end
+end
+local Hitbox = { parts = {} }
+local function restoreHitbox(part)
+	local saved = Hitbox.parts[part]
+	Hitbox.parts[part] = nil
+	if saved and part.Parent then
+		pcall(function()
+			part.Size = saved.size
+			part.CanCollide = saved.collide
+		end)
+	end
 end
 local function restoreHitboxes()
-	for part in hitboxOriginal do
+	for part in Hitbox.parts do
 		restoreHitbox(part)
 	end
 end
-local function stepHitbox(now)
-	if not Config.HitboxExpander then
-		restoreHitboxes()
+local function stepHitbox()
+	if not Settings.HitboxExpander then
+		if next(Hitbox.parts) then
+			restoreHitboxes()
+		end
 		return
 	end
-	local size = Config.HitboxSize
+	local size = Vector3.new(Settings.HitboxSize, Settings.HitboxSize, Settings.HitboxSize)
 	local wanted = {}
 	for _, model in Targets.list() do
-		if Targets.relation(model) == "enemy" and Targets.hittable(model) then
-			local root = rootOf(model)
-			if root then
-				wanted[root] = true
-				if not hitboxOriginal[root] then
-					hitboxOriginal[root] =
-						{ size = root.Size, canCollide = root.CanCollide, transparency = root.Transparency }
-				end
-				pcall(function()
-					root.Size = Vector3.new(size, size, size)
-					root.CanCollide = false
-				end)
+		local root = rootOf(model)
+		if root and Targets.relation(model) == "enemy" and isAlive(model) and not Targets.down(model) then
+			wanted[root] = true
+			if not Hitbox.parts[root] then
+				Hitbox.parts[root] = { size = root.Size, collide = root.CanCollide }
+			end
+			if root.Size ~= size then
+				root.Size = size
+				root.CanCollide = false
 			end
 		end
 	end
-	for part in hitboxOriginal do
+	for part in Hitbox.parts do
 		if not wanted[part] then
 			restoreHitbox(part)
 		end
 	end
 end
-
+local Teleport = { home = nil, nextAt = 0, notified = false }
+local function teleportTarget(myRoot)
+	local best, bestScore = nil, math.huge
+	for _, model in Targets.list() do
+		local root, humanoid = rootOf(model), humanoidOf(model)
+		if root and humanoid and Targets.hittable(model) and Targets.relation(model) == "enemy" then
+			local distance = (root.Position - myRoot.Position).Magnitude
+			local score = if Settings.TeleportTarget == "Lowest HP"
+				then humanoid.Health * 10 + distance * 0.01
+				else distance
+			if Settings.TeleportTarget == "Aim Target" then
+				local _, part = Targets.onScreen()
+				score = if part and part:IsDescendantOf(model) then 0 else math.huge
+			end
+			if score < bestScore then
+				best, bestScore = root, score
+			end
+		end
+	end
+	return best
+end
 local function stepTeleportKill(now)
-	if not Config.TeleportKill then
-		if op.tpHome then
+	if not Settings.TeleportKill then
+		if Teleport.home then
 			local root = rootOf(character())
-			if Config.TeleportReturn and root then
-				pcall(function()
-					root.CFrame = op.tpHome
-				end)
+			if root and Settings.TeleportReturn then
+				character():PivotTo(Teleport.home)
 			end
-			op.tpHome = nil
+			Teleport.home = nil
 		end
 		return
 	end
-	if not isMelee(currentKind()) then
+	if now < Teleport.nextAt then
 		return
 	end
-	local own = character()
-	local root = rootOf(own)
-	if not (root and isAlive(own) and canAct()) then
+	Teleport.nextAt = now + 0.12
+	local model = character()
+	local myRoot = rootOf(model)
+	local handler = op.handler
+	if not (myRoot and isAlive(model) and handler and handler.ctx and isMelee(handler.ctx.kind)) then
 		return
 	end
-	if now < (op.tpAt or 0) then
-		return
-	end
-	op.tpAt = now + 0.12
-	local target = pickTeleportTarget(root)
-	if not target then
-		if Config.TeleportReturn and op.tpHome then
-			pcall(function()
-				root.CFrame = op.tpHome
-			end)
-			op.tpHome = nil
+	local theirRoot = teleportTarget(myRoot)
+	if not theirRoot then
+		if Teleport.home and Settings.TeleportReturn then
+			model:PivotTo(Teleport.home)
 		end
+		Teleport.home = nil
 		return
 	end
-	if not op.tpHome then
-		op.tpHome = root.CFrame
-	end
-	local tr = rootOf(target)
-	if not tr then
-		return
-	end
-	local pos = Core.behind(tr, Config.TeleportOffset)
-	pcall(function()
-		root.CFrame = CFrame.lookAt(pos, tr.Position)
-	end)
-	updateMeleeDirection(root, tr)
-	tap("Primary")
-end
-
-local function applyViewBob()
-	local cam = mod("Camera")
-	if not (cam and type(cam.SetViewBobbing) == "function") then
-		return
-	end
-	if Config.NoViewBob and not op.bobApplied then
-		pcall(cam.SetViewBobbing, false)
-		op.bobApplied = true
-	elseif not Config.NoViewBob and op.bobApplied then
-		pcall(cam.SetViewBobbing, true)
-		op.bobApplied = false
-	end
-end
-
-local function newDrawing(class)
-	local ok, obj = pcall(Drawing.new, class)
-	if ok and obj then
-		table.insert(Pivot.Drawings, obj)
-		return obj
-	end
-	return nil
-end
-local espSlots = {}
-local tracerSlots = {}
-local trapSlots = {}
-local skeletonSlots = {}
-local chamEntries = {}
-local fovCircle = nil
-local hitMarker = nil
-local BONES = {
-	{ "Head", "UpperTorso" },
-	{ "UpperTorso", "LowerTorso" },
-	{ "UpperTorso", "LeftUpperArm" },
-	{ "LeftUpperArm", "LeftLowerArm" },
-	{ "LeftLowerArm", "LeftHand" },
-	{ "UpperTorso", "RightUpperArm" },
-	{ "RightUpperArm", "RightLowerArm" },
-	{ "RightLowerArm", "RightHand" },
-	{ "LowerTorso", "LeftUpperLeg" },
-	{ "LeftUpperLeg", "LeftLowerLeg" },
-	{ "LeftLowerLeg", "LeftFoot" },
-	{ "LowerTorso", "RightUpperLeg" },
-	{ "RightUpperLeg", "RightLowerLeg" },
-	{ "RightLowerLeg", "RightFoot" },
-}
-local function relationColour(relation)
-	local cfg = mod("Config")
-	if cfg then
-		if relation == "ally" and typeof(cfg.ALLY_COLOR) == "Color3" then
-			return cfg.ALLY_COLOR
-		end
-		if relation == "enemy" and typeof(cfg.ENEMY_COLOR) == "Color3" then
-			return cfg.ENEMY_COLOR
-		end
-	end
-	return relation == "ally" and Color3.fromRGB(70, 170, 255) or Color3.fromRGB(255, 72, 72)
-end
-local function displayName(model)
-	local name = U.attr(model, "DisplayName")
-	if type(name) == "string" and name ~= "" then
-		return name
-	end
-	local player = Players:GetPlayerFromCharacter(model)
-	if player then
-		return player.DisplayName or player.Name
-	end
-	return "Dummy"
-end
-local function weaponName(model)
-	for _, item in model:GetChildren() do
-		if item:IsA("Tool") then
-			local id = U.attr(item, "WeaponId")
-			local weapons = mod("Weapons")
-			if weapons and type(weapons.Get) == "function" and id then
-				local ok, def = pcall(weapons.Get, id)
-				if ok and type(def) == "table" and def.name then
-					return def.name
-				end
-			end
-			return item.Name
-		end
-	end
-	return ""
-end
-local function partPos(model, name)
-	local part = model:FindFirstChild(name)
-	return (part and part:IsA("BasePart")) and part.Position or nil
-end
-local function slot(pool, index, builder)
-	local entry = pool[index]
-	if not entry then
-		entry = builder()
-		pool[index] = entry
-	end
-	return entry
-end
-local function hideFrom(pool, index, hider)
-	for i = index, #pool do
-		hider(pool[i])
-	end
-end
-local function visualsWanted()
-	return Config.PlayerEsp
-		or Config.PlayerTracers
-		or Config.PlayerChams
-		or Config.SkeletonEsp
-		or Config.TrapEsp
-		or Config.ShowFov
-		or Config.HitMarker
-end
-
-local function drawPlayers()
-	local cam = camera()
-	local own = character()
-	local origin = own and rootOf(own)
-	origin = origin and origin.Position
-	local espIndex, tracerIndex, skelIndex = 1, 1, 1
+	Teleport.home = Teleport.home or myRoot.CFrame
+	local goal = Core.behind(theirRoot.CFrame, math.clamp(Settings.TeleportOffset, 1.5, 6))
+	model:PivotTo(
+		CFrame.lookAt(goal.Position, Vector3.new(theirRoot.Position.X, goal.Position.Y, theirRoot.Position.Z))
+	)
+	updateMeleeDirection(myRoot, theirRoot)
 	if
-		(Config.PlayerEsp or Config.PlayerTracers or Config.PlayerChams or Config.SkeletonEsp)
-		and cam
-		and origin
+		type(handler.Ready) == "function"
+		and handler:Ready()
+		and not handler.blocking
+		and not handler.parrying
+		and canAct()
 	then
-		for _, model in Targets.list() do
-			local relation = Targets.relation(model)
-			local show = relation == "enemy" or (relation == "ally" and Config.EspTeammates)
-			if show and isAlive(model) and model ~= own then
-				local root = rootOf(model)
-				local head = headOf(model) or root
-				if root then
-					local dist = (root.Position - origin).Magnitude
-					if dist <= Config.EspMaxDistance then
-						local colour = relationColour(relation)
-						local okTop, top =
-							pcall(cam.WorldToViewportPoint, cam, head.Position + Vector3.new(0, 2, 0))
-						local okBot, bottom =
-							pcall(cam.WorldToViewportPoint, cam, root.Position - Vector3.new(0, 3, 0))
-						if okTop and okBot and top.Z > 0 and bottom.Z > 0 then
-							local height = math.abs(bottom.Y - top.Y)
-							local width = height * 0.6
-							local x = (top.X + bottom.X) / 2 - width / 2
-							local y = math.min(top.Y, bottom.Y)
-							if Config.PlayerChams then
-								local entry = chamEntries[model]
-								if not entry then
-									local ok, hl = pcall(Instance.new, "Highlight")
-									if ok and hl then
-										hl.FillTransparency = 0.55
-										hl.OutlineTransparency = 0
-										hl.Adornee = model
-										hl.Parent = model
-										entry = { highlight = hl }
-										chamEntries[model] = entry
-									end
-								end
-								if entry and entry.highlight then
-									entry.highlight.FillColor = colour
-									entry.highlight.OutlineColor = colour
-									entry.highlight.Enabled = true
-								end
-							elseif chamEntries[model] then
-								pcall(function()
-									chamEntries[model].highlight.Enabled = false
-								end)
-							end
-							if Config.PlayerEsp then
-								local e = slot(espSlots, espIndex, function()
-									return {
-										box = newDrawing("Square"),
-										name = newDrawing("Text"),
-										info = newDrawing("Text"),
-										htext = newDrawing("Text"),
-										hpbg = newDrawing("Square"),
-										hp = newDrawing("Square"),
-										armor = newDrawing("Square"),
-									}
-								end)
-								espIndex += 1
-								if e.box then
-									e.box.Visible = true
-									e.box.Color = colour
-									e.box.Thickness = 1
-									e.box.Filled = false
-									e.box.Position = Vector2.new(x, y)
-									e.box.Size = Vector2.new(width, height)
-								end
-								if e.name then
-									e.name.Visible = true
-									e.name.Text = displayName(model)
-									e.name.Color = K.White
-									e.name.Size = 13
-									e.name.Center = true
-									e.name.Outline = true
-									e.name.Position = Vector2.new(x + width / 2, y - 16)
-								end
-								if e.info then
-									e.info.Visible = Config.EspInfo
-									if Config.EspInfo then
-										e.info.Text = weaponName(model) .. "  " .. tostring(math.floor(dist)) .. "m"
-										e.info.Color = K.White
-										e.info.Size = 12
-										e.info.Center = true
-										e.info.Outline = true
-										e.info.Position = Vector2.new(x + width / 2, y + height + 2)
-									end
-								end
-								local hum = humanoidOf(model)
-								local frac = hum and math.clamp(hum.Health / math.max(hum.MaxHealth, 1), 0, 1) or 1
-								if e.hpbg then
-									e.hpbg.Visible = Config.HealthBars
-									e.hpbg.Color = Color3.new(0, 0, 0)
-									e.hpbg.Filled = true
-									e.hpbg.Position = Vector2.new(x - 5, y)
-									e.hpbg.Size = Vector2.new(3, height)
-								end
-								if e.hp then
-									e.hp.Visible = Config.HealthBars
-									e.hp.Color = Color3.fromRGB(80, 230, 90)
-									e.hp.Filled = true
-									e.hp.Position = Vector2.new(x - 5, y + height * (1 - frac))
-									e.hp.Size = Vector2.new(3, height * frac)
-								end
-								local armor = U.attr(model, "Armor")
-								local maxArmor = U.attr(model, "MaxArmor")
-								local aFrac = (
-									type(armor) == "number"
-									and type(maxArmor) == "number"
-									and maxArmor > 0
-								)
-										and math.clamp(armor / maxArmor, 0, 1)
-									or 0
-								if e.armor then
-									e.armor.Visible = Config.HealthBars and aFrac > 0
-									e.armor.Color = Color3.fromRGB(230, 210, 90)
-									e.armor.Filled = true
-									e.armor.Position = Vector2.new(x - 9, y + height * (1 - aFrac))
-									e.armor.Size = Vector2.new(3, height * aFrac)
-								end
-								if e.htext then
-									e.htext.Visible = Config.EspHealthText and hum ~= nil
-									if e.htext.Visible then
-										e.htext.Text = tostring(math.floor((hum and hum.Health) or 0))
-										e.htext.Color = K.White
-										e.htext.Size = 12
-										e.htext.Center = true
-										e.htext.Outline = true
-										e.htext.Position = Vector2.new(x - 5, y - 14)
-									end
-								end
-							end
-							if Config.PlayerTracers then
-								local line = slot(tracerSlots, tracerIndex, function()
-									return newDrawing("Line")
-								end)
-								tracerIndex += 1
-								if line then
-									line.Visible = true
-									line.Color = colour
-									line.Thickness = 1
-									line.From = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
-									line.To = Vector2.new((top.X + bottom.X) / 2, bottom.Y)
-								end
-							end
-							if Config.SkeletonEsp then
-								local set = slot(skeletonSlots, skelIndex, function()
-									local lines = {}
-									for i = 1, #BONES do
-										lines[i] = newDrawing("Line")
-									end
-									return lines
-								end)
-								skelIndex += 1
-								for i, bone in BONES do
-									local line = set[i]
-									local a = partPos(model, bone[1])
-									local b = partPos(model, bone[2])
-									if line then
-										if a and b then
-											local okA, pa = pcall(cam.WorldToViewportPoint, cam, a)
-											local okB, pb = pcall(cam.WorldToViewportPoint, cam, b)
-											if okA and okB and pa.Z > 0 and pb.Z > 0 then
-												line.Visible = true
-												line.Color = colour
-												line.Thickness = 1
-												line.From = Vector2.new(pa.X, pa.Y)
-												line.To = Vector2.new(pb.X, pb.Y)
-											else
-												line.Visible = false
-											end
-										else
-											line.Visible = false
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-	hideFrom(espSlots, espIndex, function(e)
-		for _, obj in e do
-			if obj then
-				obj.Visible = false
-			end
-		end
-	end)
-	hideFrom(tracerSlots, tracerIndex, function(line)
-		if line then
-			line.Visible = false
-		end
-	end)
-	hideFrom(skeletonSlots, skelIndex, function(set)
-		for _, line in set do
-			if line then
-				line.Visible = false
-			end
-		end
-	end)
-	for model, entry in chamEntries do
-		if not (model.Parent and Config.PlayerChams) then
-			pcall(function()
-				entry.highlight:Destroy()
-			end)
-			chamEntries[model] = nil
-		end
+		handler:Swing()
 	end
 end
-
-local function drawTraps()
-	local cam = camera()
-	local own = character()
-	local origin = own and rootOf(own)
-	origin = origin and origin.Position
-	local index = 1
-	if Config.TrapEsp and cam and origin then
-		local ok, tagged = pcall(CollectionService.GetTagged, CollectionService, "BearTrap")
-		if ok and type(tagged) == "table" then
-			for _, trap in tagged do
-				if typeof(trap) == "Instance" then
-					local sprung = U.attr(trap, "Sprung")
-					local ownerId = U.attr(trap, "OwnerUserId")
-					local mine = ownerId ~= nil and ownerId == LocalPlayer.UserId
-					local part = trap:IsA("BasePart") and trap or trap:FindFirstChildWhichIsA("BasePart")
-					if part and not sprung and not mine then
-						local okP, point = pcall(cam.WorldToViewportPoint, cam, part.Position)
-						if okP and point.Z > 0 then
-							local dist = (part.Position - origin).Magnitude
-							if dist <= Config.EspMaxDistance then
-								local entry = slot(trapSlots, index, function()
-									return { label = newDrawing("Text") }
-								end)
-								index += 1
-								if entry.label then
-									entry.label.Visible = true
-									entry.label.Text = "TRAP " .. tostring(math.floor(dist)) .. "m"
-									entry.label.Color = Color3.fromRGB(255, 160, 60)
-									entry.label.Size = 12
-									entry.label.Center = true
-									entry.label.Outline = true
-									entry.label.Position = Vector2.new(point.X, point.Y)
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-	hideFrom(trapSlots, index, function(entry)
-		if entry.label then
-			entry.label.Visible = false
-		end
-	end)
-end
-
-local function drawFov()
-	if not Config.ShowFov then
-		if fovCircle then
-			fovCircle.Visible = false
-		end
-		return
-	end
-	local cam = camera()
-	if not cam then
-		return
-	end
-	if not fovCircle then
-		fovCircle = newDrawing("Circle")
-	end
-	if fovCircle then
-		fovCircle.Visible = true
-		fovCircle.Thickness = 1
-		fovCircle.Color = K.White
-		fovCircle.Filled = false
-		fovCircle.Radius = Config.AimFov
-		fovCircle.Position = cam.ViewportSize / 2
-	end
-end
-
-local function drawHitMarker(now)
-	if not hitMarker then
-		hitMarker = {}
-		for i = 1, 4 do
-			hitMarker[i] = newDrawing("Line")
-		end
-	end
-	local active = Config.HitMarker and now < (op.hitMarkerUntil or 0)
-	local cam = camera()
-	if active and cam then
-		local center = cam.ViewportSize / 2
-		local gap, len = 4, 8
-		local offs = {
-			{ Vector2.new(-gap, -gap), Vector2.new(-gap - len, -gap - len) },
-			{ Vector2.new(gap, -gap), Vector2.new(gap + len, -gap - len) },
-			{ Vector2.new(-gap, gap), Vector2.new(-gap - len, gap + len) },
-			{ Vector2.new(gap, gap), Vector2.new(gap + len, gap + len) },
-		}
-		for i = 1, 4 do
-			local line = hitMarker[i]
-			if line then
-				line.Visible = true
-				line.Color = K.White
-				line.Thickness = 2
-				line.From = center + offs[i][1]
-				line.To = center + offs[i][2]
-			end
-		end
-	else
-		for i = 1, 4 do
-			if hitMarker[i] then
-				hitMarker[i].Visible = false
-			end
-		end
-	end
-end
-
-local function hideAllVisuals()
-	for _, e in espSlots do
-		for _, obj in e do
-			if obj then
-				obj.Visible = false
-			end
-		end
-	end
-	for _, line in tracerSlots do
-		if line then
-			line.Visible = false
-		end
-	end
-	for _, set in skeletonSlots do
-		for _, line in set do
-			if line then
-				line.Visible = false
-			end
-		end
-	end
-	for _, entry in trapSlots do
-		if entry.label then
-			entry.label.Visible = false
-		end
-	end
-	if fovCircle then
-		fovCircle.Visible = false
-	end
-	for i = 1, 4 do
-		if hitMarker and hitMarker[i] then
-			hitMarker[i].Visible = false
-		end
-	end
-	for model, entry in chamEntries do
-		pcall(function()
-			entry.highlight.Enabled = false
-		end)
-	end
-end
-
-local function drawVisuals()
-	if not Pivot.Running then
-		return
-	end
-	if not visualsWanted() then
-		hideAllVisuals()
-		return
-	end
-	op.guard("drawPlayers", drawPlayers)
-	op.guard("drawTraps", drawTraps)
-	op.guard("drawFov", drawFov)
-	op.guard("drawHitMarker", drawHitMarker, tick())
-end
-
-local window
-local function releaseTrigger()
-	releaseTriggerHold()
-	op.triggerModel, op.triggerAt, op.triggerWait = nil, 0, 0
-end
-local function releaseBlock()
-	if op.blockHeld then
-		dispatch("Secondary", false)
-		op.blockHeld = false
-	end
-end
-local function resetSession()
-	releaseTrigger()
-	releaseBlock()
-	op.shot, op.meleeDirection, op.handler, op.preCharge, op.heal = nil, nil, nil, nil, nil
-	op.threatUntil, op.threatFrom = 0, nil
-	op.parryDue, op.parryActive, op.parryUntil = nil, false, 0
-	op.triggerModel, op.triggerAt, op.triggerWait, op.triggerReleaseAt = nil, 0, 0, 0
-	table.clear(op.velocities)
-	restoreHitboxes()
-	op.tpHome = nil
-end
-local function stepSession(now)
-	local own = character()
-	local key = own and U.attr(own, "MatchId")
-	key = (type(key) == "string" and key ~= "") and key or false
-	if op.matchKey == nil then
-		op.matchKey = key
-	elseif op.matchKey ~= key then
-		op.matchKey = key
-		resetSession()
-	end
-	if now >= op.pruneAt then
-		op.pruneAt = now + 2
-		for model, entry in op.velocities do
-			if not (model.Parent and entry.root and entry.root.Parent) then
-				op.velocities[model] = nil
-			end
-		end
-	end
-end
-Pivot.track(LocalPlayer.CharacterAdded:Connect(function()
-	if Pivot.Running then
-		op.guard("reset", resetSession)
-		op.matchKey = nil
-	end
-end))
-
-local function bindRemotes()
-	if Shared.RemotesBound then
-		return true
-	end
-	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-	if not remotes then
-		return false
-	end
-	local combatFX = remotes:FindFirstChild("CombatFX")
-	local combatFXU = remotes:FindFirstChild("CombatFXU")
-	local hitConfirm = remotes:FindFirstChild("HitConfirm")
-	if combatFX then
-		U.connect(combatFX.OnClientEvent, function(kind, data)
-			onCombatFX(kind, data)
-		end)
-	end
-	if combatFXU then
-		U.connect(combatFXU.OnClientEvent, function(kind, data)
-			onCombatFX(kind, data)
-		end)
-	end
-	if hitConfirm then
-		U.connect(hitConfirm.OnClientEvent, function()
-			if Config.HitMarker then
-				op.hitMarkerUntil = tick() + 0.18
-			end
-		end)
-	end
-	Shared.RemotesBound = true
-	return combatFX ~= nil or hitConfirm ~= nil
-end
-
-local function stepReady(now)
-	if not op.hooked then
-		op.hooked = installHooks() == true
-	end
-	if not op.backstop then
-		op.backstop = installRemoteBackstop() == true
-	end
-	if not Shared.RemotesBound then
-		bindRemotes()
-	end
-	if now >= (op.syncAt or 0) then
-		op.syncAt = now + 2.5
-		if op.hooked then
-			syncInputStatsWatches()
-		end
-	end
-end
-
-Pivot.track(RunService.Heartbeat:Connect(function()
-	if not Pivot.Running then
-		return
-	end
-	local now = tick()
-	op.guard("ready", stepReady, now)
-	op.guard("preCharge", stepPreCharge, now)
-	op.guard("trigger", stepTrigger, now)
-	op.guard("autoRelease", stepAutoRelease, now)
-	op.guard("aura", stepAura, now)
-	op.guard("autoBlock", stepAutoBlock, now)
-	op.guard("parry", stepParry, now)
-	op.guard("autoHeal", stepAutoHeal, now)
-	op.guard("slideHop", stepSlideHop, now)
-	op.guard("bunnyHop", stepBunnyHop, now)
-	op.guard("autoQueue", stepAutoQueue, now)
-	op.guard("autoReload", stepAutoReload, now)
-	op.guard("hitbox", stepHitbox, now)
-	op.guard("teleportKill", stepTeleportKill, now)
-	op.guard("viewBob", applyViewBob)
-	op.guard("session", stepSession, now)
-end))
-
-Pivot.track(RunService.RenderStepped:Connect(function(dt)
-	if not Pivot.Running then
-		return
-	end
-	op.guard("cameraAim", cameraAim, dt)
-	op.guard("visuals", drawVisuals)
-end))
-
+local queueFunction = queue_on_teleport
 local function queueLoader()
-	if type(queue_on_teleport) ~= "function" then
+	if not (Settings.AutoExecute and type(queueFunction) == "function") or Shared.Queued then
 		return
 	end
-	pcall(queue_on_teleport, string.format("loadstring(game:HttpGet(%q))()", K.LoaderUrl))
+	Shared.Queued = true
+	pcall(queueFunction, `loadstring(game:HttpGet("{LOADER_URL}"))()`)
 end
+Pivot.track(LocalPlayer.OnTeleport:Connect(function(state)
+	if state == Enum.TeleportState.Started or state == Enum.TeleportState.InProgress then
+		queueLoader()
+	elseif state == Enum.TeleportState.Failed then
+		Shared.Queued = false
+	end
+end))
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
 local function rejoin()
-	local ts = TeleportService
-	pcall(function()
-		ts:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-	end)
+	queueLoader()
+	if #Players:GetPlayers() <= 1 then
+		TeleportService:Teleport(game.PlaceId, LocalPlayer)
+	else
+		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+	end
 end
 local function serverHop()
-	local ts = TeleportService
-	local ok, body = pcall(function()
-		return game:HttpGet(string.format(K.ServerList, game.PlaceId))
-	end)
+	local ok, body = pcall(
+		game.HttpGet,
+		game,
+		`https://games.roblox.com/v1/games/{game.PlaceId}/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true`
+	)
 	if not ok then
-		return
+		return false
 	end
-	local okJson, data = pcall(function()
-		return HttpService:JSONDecode(body)
-	end)
-	if not okJson or type(data) ~= "table" or type(data.data) ~= "table" then
-		return
+	local decoded, data = pcall(HttpService.JSONDecode, HttpService, body)
+	if not (decoded and type(data) == "table" and type(data.data) == "table") then
+		return false
 	end
 	local options = {}
 	for _, server in data.data do
 		if
 			type(server) == "table"
 			and server.id ~= game.JobId
-			and (server.playing or 0) < (server.maxPlayers or 99)
+			and tonumber(server.playing)
+			and tonumber(server.maxPlayers)
+			and server.playing < server.maxPlayers
 		then
 			table.insert(options, server.id)
 		end
 	end
-	if #options > 0 then
-		pcall(function()
-			ts:TeleportToPlaceInstance(game.PlaceId, options[math.random(1, #options)], LocalPlayer)
-		end)
+	if #options == 0 then
+		return false
 	end
+	queueLoader()
+	TeleportService:TeleportToPlaceInstance(game.PlaceId, options[math.random(1, #options)], LocalPlayer)
+	return true
 end
-U.connect(LocalPlayer.OnTeleport, function()
-	if Config.AutoExecute then
-		queueLoader()
+Pivot.track(RunService.Heartbeat:Connect(function()
+	if not Pivot.Running then
+		return
+	end
+	if not op.hooked then
+		local ok, done = op.guard("installHooks", installHooks)
+		op.hooked = ok == true and done == true
+	end
+	local now = os.clock()
+	op.guard("triggerbot", stepTrigger)
+	op.guard("autoRelease", stepAutoRelease)
+	op.guard("autoSwing", stepAutoSwing)
+	op.guard("autoBlock", stepAutoBlock)
+	op.guard("autoHeal", stepAutoHeal, now)
+	op.guard("slideHop", stepSlideHop, now)
+	op.guard("autoQueue", stepAutoQueue, now)
+	op.guard("parryWatch", stepParryWatch, now)
+	op.guard("autoReload", stepAutoReload)
+	op.guard("hitbox", stepHitbox)
+	op.guard("teleportKill", stepTeleportKill, now)
+end))
+RunService:BindToRenderStep(AIM_STEP, Enum.RenderPriority.Camera.Value, function(dt)
+	op.guard("aimbot", cameraAim, dt)
+end)
+table.insert(Pivot.Restore, function()
+	pcall(RunService.UnbindFromRenderStep, RunService, AIM_STEP)
+end)
+task.spawn(function()
+	local remotes = ReplicatedStorage:WaitForChild("Remotes", 30)
+	if not (remotes and Pivot.Running) then
+		return
+	end
+	for _, name in { "CombatFX", "CombatFXU" } do
+		local remote = remotes:WaitForChild(name, 15)
+		if remote and Pivot.Running then
+			Pivot.track(remote.OnClientEvent:Connect(function(kind, data)
+				op.guard("combatFx", onCombatFx, kind, data)
+				op.guard("parryFx", parryFromFx, kind, data)
+			end))
+		end
 	end
 end)
-
+local hasDrawing = pcall(function()
+	local probe = Drawing.new("Line")
+	probe:Remove()
+end)
+local function newDrawing(class, props)
+	if not hasDrawing then
+		return { Visible = false, Text = "", Remove = function() end }
+	end
+	local made, object = pcall(Drawing.new, class)
+	if not made or object == nil then
+		return { Visible = false, Text = "", Remove = function() end }
+	end
+	for key, value in props do
+		pcall(function()
+			object[key] = value
+		end)
+	end
+	object.Visible = false
+	table.insert(Pivot.Drawings, object)
+	return object
+end
+local espSlots = {}
+local espUsed = 0
+local function espSlot(index)
+	local existing = espSlots[index]
+	if existing then
+		return existing
+	end
+	local made = {
+		outline = newDrawing("Square", { Thickness = 3, Filled = false, Color = Color3.new() }),
+		box = newDrawing("Square", { Thickness = 1, Filled = false, Color = WHITE }),
+		name = newDrawing("Text", { Size = 13, Center = true, Outline = true, Color = WHITE }),
+		info = newDrawing("Text", { Size = 12, Center = true, Outline = true, Color = WHITE }),
+		healthBack = newDrawing("Line", { Thickness = 4, Color = Color3.new() }),
+		health = newDrawing("Line", { Thickness = 2, Color = Color3.fromRGB(90, 230, 110) }),
+		armorBack = newDrawing("Line", { Thickness = 4, Color = Color3.new() }),
+		armor = newDrawing("Line", { Thickness = 2, Color = Color3.fromRGB(120, 190, 255) }),
+	}
+	espSlots[index] = made
+	return made
+end
+local function hideEspFrom(index)
+	for i = index, espUsed do
+		local entry = espSlots[i]
+		if entry then
+			for _, object in entry do
+				object.Visible = false
+			end
+		end
+	end
+	espUsed = math.max(index - 1, 0)
+end
+local tracerSlots = {}
+local tracerUsed = 0
+local function tracerSlot(index)
+	local existing = tracerSlots[index]
+	if existing then
+		return existing
+	end
+	local made = newDrawing("Line", { Thickness = 1, Color = WHITE })
+	tracerSlots[index] = made
+	return made
+end
+local function hideTracersFrom(index)
+	for i = index, tracerUsed do
+		local line = tracerSlots[i]
+		if line then
+			line.Visible = false
+		end
+	end
+	tracerUsed = math.max(index - 1, 0)
+end
+local chamEntries = {}
+local chamStamp = 0
+local function chamEntry(model)
+	local existing = chamEntries[model]
+	if existing then
+		return existing
+	end
+	local highlight = Instance.new("Highlight")
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.FillTransparency = 0.65
+	highlight.OutlineTransparency = 0
+	highlight.Adornee = model
+	highlight.Parent = model
+	local made = { highlight = highlight, stamp = 0 }
+	chamEntries[model] = made
+	return made
+end
+local function sweepChams()
+	for model, entry in chamEntries do
+		if entry.highlight.Parent == nil then
+			chamEntries[model] = nil
+		elseif entry.stamp ~= chamStamp then
+			entry.highlight.Enabled = false
+		end
+	end
+end
+local fovCircle = nil
+local visualConnection = nil
+local function visualsWanted()
+	return Settings.PlayerEsp or Settings.PlayerTracers or Settings.PlayerChams or Settings.ShowFov or Settings.TrapEsp
+end
+local function displayName(model)
+	local name = model:GetAttribute("DisplayName")
+	if type(name) == "string" and name ~= "" then
+		return name
+	end
+	local player = Players:GetPlayerFromCharacter(model)
+	if player then
+		return player.DisplayName
+	end
+	return CollectionService:HasTag(model, "TrainingDummy") and "Dummy" or model.Name
+end
+local function weaponName(model)
+	local tool = model:FindFirstChildOfClass("Tool")
+	local id = tool and tool:GetAttribute("WeaponId")
+	local weapons = mod("Weapons")
+	local definition = type(id) == "string" and weapons and okValue(weapons.Get, id)
+	return type(definition) == "table" and definition.name or "Fists"
+end
+local function relationColour(relation)
+	local config = mod("Config")
+	if relation == "enemy" then
+		return config and config.ENEMY_COLOR or Color3.fromRGB(255, 72, 72)
+	end
+	if relation == "ally" then
+		return config and config.ALLY_COLOR or Color3.fromRGB(70, 170, 255)
+	end
+	return WHITE
+end
+local function showRelation(relation)
+	return relation == "enemy"
+		or (relation == "ally" and Settings.EspTeammates)
+		or (relation == "neutral" and Settings.EspLobby)
+end
+local trapSlots = {}
+local function trapAlly(trap)
+	if trap:GetAttribute("OwnerUserId") == LocalPlayer.UserId then
+		return true
+	end
+	local own = character()
+	local match = own and own:GetAttribute("MatchId")
+	if type(match) ~= "string" or match == "" then
+		return false
+	end
+	return trap:GetAttribute("MatchId") == match and trap:GetAttribute("Team") == own:GetAttribute("Team")
+end
+local function drawTraps()
+	local used = 0
+	if Settings.TrapEsp then
+		local camera = Workspace.CurrentCamera
+		local origin = camera.CFrame.Position
+		for _, trap in CollectionService:GetTagged("BearTrap") do
+			if
+				trap:IsA("Model")
+				and trap:IsDescendantOf(Workspace)
+				and trap:GetAttribute("Sprung") ~= true
+				and not trapAlly(trap)
+			then
+				local position = trap:GetPivot().Position
+				local distance = (position - origin).Magnitude
+				local point, onScreen = camera:WorldToViewportPoint(position)
+				if onScreen and distance <= Settings.EspMaxDistance then
+					used += 1
+					local label = trapSlots[used]
+					if not label then
+						label = newDrawing(
+							"Text",
+							{ Size = 13, Center = true, Outline = true, Color = Color3.fromRGB(255, 170, 40) }
+						)
+						trapSlots[used] = label
+					end
+					label.Text = `TRAP [{math.floor(distance)}m]`
+					label.Position = Vector2.new(point.X, point.Y)
+					label.Visible = true
+				end
+			end
+		end
+	end
+	for i = used + 1, #trapSlots do
+		trapSlots[i].Visible = false
+	end
+end
+local function drawPlayers()
+	drawTraps()
+	chamStamp += 1
+	if not (Settings.PlayerEsp or Settings.PlayerTracers or Settings.PlayerChams) then
+		hideEspFrom(1)
+		hideTracersFrom(1)
+		sweepChams()
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	local origin = camera.CFrame.Position
+	local viewport = camera.ViewportSize
+	local footing = Vector2.new(viewport.X * 0.5, viewport.Y)
+	local index, tracerIndex = 0, 0
+	for _, model in Targets.list() do
+		local root = rootOf(model)
+		local humanoid = humanoidOf(model)
+		if root and humanoid and humanoid.Health > 0 then
+			local relation = Targets.relation(model)
+			local distance = (root.Position - origin).Magnitude
+			if showRelation(relation) and distance <= Settings.EspMaxDistance then
+				local colour = relationColour(relation)
+				if Settings.PlayerChams then
+					local entry = chamEntry(model)
+					entry.highlight.FillColor = colour
+					entry.highlight.OutlineColor = colour
+					entry.highlight.Enabled = true
+					entry.stamp = chamStamp
+				end
+				local top, onScreen = camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3.2, 0))
+				if onScreen then
+					local bottom = camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+					local height = math.abs(top.Y - bottom.Y)
+					local width = height * 0.55
+					local left = top.X - width * 0.5
+					if Settings.PlayerEsp then
+						index += 1
+						local entry = espSlot(index)
+						entry.box.Color = colour
+						entry.box.Position = Vector2.new(left, top.Y)
+						entry.box.Size = Vector2.new(width, height)
+						entry.box.Visible = true
+						entry.outline.Position = entry.box.Position
+						entry.outline.Size = entry.box.Size
+						entry.outline.Visible = true
+						entry.name.Color = colour
+						entry.name.Position = Vector2.new(top.X, top.Y - 15)
+						entry.name.Text = displayName(model)
+						entry.name.Visible = true
+						entry.info.Text = if Settings.EspHealthText
+							then `{weaponName(model)}  {math.floor(humanoid.Health + 0.5)} HP  [{math.floor(distance)}m]`
+							else `{weaponName(model)}  [{math.floor(distance)}m]`
+						entry.info.Position = Vector2.new(top.X, bottom.Y + 6)
+						entry.info.Visible = Settings.EspInfo
+						local fraction = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
+						local barX = left - 5
+						entry.healthBack.From = Vector2.new(barX, bottom.Y + 1)
+						entry.healthBack.To = Vector2.new(barX, top.Y - 1)
+						entry.healthBack.Visible = Settings.HealthBars
+						entry.health.Color = Color3.fromRGB(255, 70, 70):Lerp(Color3.fromRGB(90, 230, 110), fraction)
+						entry.health.From = Vector2.new(barX, bottom.Y)
+						entry.health.To = Vector2.new(barX, bottom.Y - height * fraction)
+						entry.health.Visible = Settings.HealthBars
+						local maxArmor = tonumber(model:GetAttribute("MaxArmor")) or 0
+						local armor = tonumber(model:GetAttribute("Armor")) or 0
+						local showArmor = Settings.HealthBars and maxArmor > 0 and armor > 0
+						local armorY = bottom.Y + 3
+						entry.armorBack.From = Vector2.new(left - 1, armorY)
+						entry.armorBack.To = Vector2.new(left + width + 1, armorY)
+						entry.armorBack.Visible = showArmor
+						entry.armor.From = Vector2.new(left, armorY)
+						entry.armor.To =
+							Vector2.new(left + width * math.clamp(armor / math.max(maxArmor, 1), 0, 1), armorY)
+						entry.armor.Visible = showArmor
+						if showArmor then
+							entry.info.Position = Vector2.new(top.X, bottom.Y + 8)
+						end
+					end
+					if Settings.PlayerTracers then
+						tracerIndex += 1
+						local line = tracerSlot(tracerIndex)
+						line.Color = colour
+						line.From = footing
+						line.To = Vector2.new(bottom.X, bottom.Y)
+						line.Visible = true
+					end
+				end
+			end
+		end
+	end
+	hideEspFrom(index + 1)
+	espUsed = index
+	hideTracersFrom(tracerIndex + 1)
+	tracerUsed = tracerIndex
+	sweepChams()
+end
+local function drawFov()
+	if not Settings.ShowFov then
+		if fovCircle then
+			fovCircle.Visible = false
+		end
+		return
+	end
+	if not fovCircle then
+		fovCircle =
+			newDrawing("Circle", { Thickness = 1, NumSides = 48, Filled = false, Color = WHITE, Transparency = 0.8 })
+	end
+	local viewport = Workspace.CurrentCamera.ViewportSize
+	fovCircle.Position = Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
+	fovCircle.Radius = Settings.AimFov
+	fovCircle.Visible = true
+end
+local function hideAllVisuals()
+	for _, label in trapSlots do
+		label.Visible = false
+	end
+	hideEspFrom(1)
+	hideTracersFrom(1)
+	chamStamp += 1
+	sweepChams()
+	if fovCircle then
+		fovCircle.Visible = false
+	end
+end
+local function startVisuals()
+	if visualConnection then
+		return
+	end
+	visualConnection = Pivot.track(RunService.RenderStepped:Connect(function()
+		if not Pivot.Running or not visualsWanted() then
+			hideAllVisuals()
+			return
+		end
+		op.guard("drawPlayers", drawPlayers)
+		op.guard("drawFov", drawFov)
+	end))
+end
+local function stopVisuals()
+	if not visualConnection then
+		return
+	end
+	pcall(function()
+		visualConnection:Disconnect()
+	end)
+	visualConnection = nil
+	hideAllVisuals()
+end
+local function refreshVisuals()
+	if visualsWanted() then
+		startVisuals()
+	else
+		stopVisuals()
+	end
+end
+local function resetSession()
+	pcall(releaseTrigger)
+	pcall(releaseBlock)
+	pcall(releaseSlideHop)
+	op.handler = nil
+	op.triggerHeld = nil
+	op.triggerSeen = nil
+	op.blockHeld = nil
+	op.heal = nil
+	op.shot = nil
+	op.meleeDirection = nil
+	op.threatUntil = 0
+	op.threatFrom = nil
+	table.clear(op.velocities)
+	Parry.handler = nil
+	Parry.pendingUntil = 0
+	for model, connection in Parry.watch do
+		pcall(function()
+			connection:Disconnect()
+		end)
+		Parry.watch[model] = nil
+	end
+	Parry.nextScan = 0
+	restoreHitboxes()
+	Teleport.home = nil
+end
+op.matchKey = nil
+Pivot.track(LocalPlayer.CharacterAdded:Connect(function()
+	resetSession()
+	op.matchKey = nil
+end))
+local function stepSession(now)
+	local own = character()
+	local key = own and own:GetAttribute("MatchId")
+	key = if type(key) == "string" and key ~= "" then key else false
+	if op.matchKey == nil then
+		op.matchKey = key
+	elseif op.matchKey ~= key then
+		op.matchKey = key
+		resetSession()
+	end
+	if now >= (op.pruneAt or 0) then
+		op.pruneAt = now + 2
+		for model, entry in op.velocities do
+			if not (model.Parent and entry.root.Parent) then
+				op.velocities[model] = nil
+			end
+		end
+	end
+end
+Pivot.track(RunService.Heartbeat:Connect(function()
+	if Pivot.Running then
+		op.guard("session", stepSession, os.clock())
+	end
+end))
+local window
 local function unload()
 	Pivot.Running = false
-	for key, value in Config do
+	for key, value in Settings do
 		if type(value) == "boolean" then
-			Config[key] = false
+			Settings[key] = false
 		end
 	end
 	releaseTrigger()
 	releaseBlock()
-	hideAllVisuals()
+	releaseSlideHop()
+	stopVisuals()
 	restoreHitboxes()
-	if op.bobApplied then
-		local cam = mod("Camera")
-		if cam and type(cam.SetViewBobbing) == "function" then
-			pcall(cam.SetViewBobbing, true)
-		end
-		op.bobApplied = false
+	for _, connection in Parry.watch do
+		pcall(function()
+			connection:Disconnect()
+		end)
 	end
-	if Config.TeleportReturn and op.tpHome then
-		local root = rootOf(character())
-		if root then
-			pcall(function()
-				root.CFrame = op.tpHome
-			end)
-		end
-	end
-	op.tpHome = nil
+	table.clear(Parry.watch)
+	table.clear(Parry.animators)
 	Shared.Backstop = nil
-	Shared.ChargeFilter = nil
 	op.shot, op.meleeDirection, op.handler, op.heal = nil, nil, nil, nil
 	table.clear(op.velocities)
 	for _, restore in Pivot.Restore do
 		pcall(restore)
 	end
 	table.clear(Pivot.Restore)
-	for _, conn in Pivot.Connections do
+	for _, connection in Pivot.Connections do
 		pcall(function()
-			conn:Disconnect()
+			connection:Disconnect()
 		end)
 	end
 	table.clear(Pivot.Connections)
-	for _, obj in Pivot.Drawings do
+	for _, object in Pivot.Drawings do
 		pcall(function()
-			obj:Remove()
+			object:Remove()
 		end)
 	end
 	table.clear(Pivot.Drawings)
@@ -2816,25 +2427,16 @@ local function unload()
 	table.clear(espSlots)
 	table.clear(tracerSlots)
 	table.clear(trapSlots)
-	table.clear(skeletonSlots)
-	fovCircle = nil
-	hitMarker = nil
-	if window then
-		if window._ui then
-			pcall(function()
-				window._ui:Destroy()
-			end)
-		end
-		if window._toggle_gui then
-			pcall(function()
-				window._toggle_gui:Destroy()
-			end)
-		end
-		if type(window.Destroy) == "function" then
-			pcall(function()
-				window:Destroy()
-			end)
-		end
+	espUsed, tracerUsed, fovCircle = 0, 0, nil
+	if window and window._ui then
+		pcall(function()
+			window._ui:Destroy()
+		end)
+	end
+	if window and window._toggle_gui then
+		pcall(function()
+			window._toggle_gui:Destroy()
+		end)
 	end
 	for _, gui in Pivot.Guis do
 		pcall(function()
@@ -2847,42 +2449,42 @@ local function unload()
 	end
 end
 getgenv().PivotUnload = unload
-
-local function buildUI()
-	Config.TriggerDelay = math.clamp(tonumber(Config.TriggerDelay) or 80, 0, 180)
+do
 	local Library
-	local ok, lib = pcall(function()
-		if isfile and isfile("ui.luau") then
-			return loadstring(readfile("ui.luau"))()
-		end
-		return loadstring(game:HttpGet("https://raw.githubusercontent.com/ktrodev/uis/refs/heads/main/BOII"))()
-	end)
-	if ok and type(lib) == "table" then
-		Library = lib
-	else
-		local ok2, lib2 = pcall(function()
+	do
+		local library_ok, lib = pcall(function()
+			if isfile and isfile("ui.luau") then
+				return loadstring(readfile("ui.luau"))()
+			end
 			return loadstring(game:HttpGet("https://raw.githubusercontent.com/ktrodev/uis/refs/heads/main/BOII"))()
 		end)
-		if ok2 and type(lib2) == "table" then
-			Library = lib2
+		if library_ok and type(lib) == "table" then
+			Library = lib
 		else
-			error("Failed to load Pivot UI library!")
+			local ok_remote, lib_remote = pcall(function()
+				return loadstring(game:HttpGet("https://raw.githubusercontent.com/ktrodev/uis/refs/heads/main/BOII"))()
+			end)
+			if ok_remote and type(lib_remote) == "table" then
+				Library = lib_remote
+			else
+				error("Failed to load Pivot UI library!")
+			end
 		end
 	end
 	window = Library.new()
-	pcall(function()
-		Library:set_toggle_keybind(Enum.KeyCode.RightControl)
-	end)
+	Library:set_toggle_keybind(Enum.KeyCode.RightControl)
 	if window._ui then
 		table.insert(Pivot.Guis, window._ui)
 	end
 	if window._toggle_gui then
 		table.insert(Pivot.Guis, window._toggle_gui)
 	end
-	pcall(function()
-		Library.SendNotification({ title = "Pivot", text = "Tribs 3v3 loaded!", duration = 4 })
-	end)
-	if type(window.Minimize) == "function" then
+	Library.SendNotification({
+		title = "Pivot",
+		text = "Tribs 3v3 loaded!",
+		duration = 4,
+	})
+	do
 		local menuKeys = { [Enum.KeyCode.P] = true, [Enum.KeyCode.Insert] = true, [Enum.KeyCode.End] = true }
 		Pivot.track(UserInputService.InputBegan:Connect(function(input, processed)
 			if processed or not menuKeys[input.KeyCode] or UserInputService:GetFocusedTextBox() then
@@ -2893,230 +2495,698 @@ local function buildUI()
 			end)
 		end))
 	end
-
 	local combatTab = window:create_tab("Combat", "combat")
 	local defenseTab = window:create_tab("Defense", "shield")
 	local miscTab = window:create_tab("Misc", "misc")
 	local visualsTab = window:create_tab("Visuals", "visuals")
-
-	local function checkbox(module, title, flag)
-		module:create_checkbox({
-			title = title,
-			flag = flag,
-			default = Config[flag],
+	do
+		local ranged = combatTab:create_module({
+			title = "Ranged",
+			description = "Silent aim, aimbot, and auto fire",
+			section = "left",
+			flag = "RangedModule",
+		})
+		ranged:create_checkbox({
+			title = "Silent Aim",
+			flag = "SilentAim",
+			default = Settings.SilentAim,
 			callback = function(state)
-				Config[flag] = state
+				Settings.SilentAim = state
 			end,
 		})
-	end
-	local function slider(module, title, flag, minimum, maximum, round)
-		module:create_slider({
-			title = title,
-			flag = flag,
-			min = minimum,
-			max = maximum,
-			default = Config[flag],
-			round_number = round ~= false,
+		ranged:create_checkbox({
+			title = "Camera Aimbot",
+			flag = "Aimbot",
+			default = Settings.Aimbot,
+			callback = function(state)
+				Settings.Aimbot = state
+			end,
+		})
+		ranged:create_dropdown({
+			title = "Aimbot Key",
+			flag = "AimbotKey",
+			options = { "Hold Right Mouse", "Always" },
+			default = Settings.AimbotKey,
+			callback = function(mode)
+				Settings.AimbotKey = mode
+			end,
+		})
+		ranged:create_dropdown({
+			title = "Aim Part",
+			flag = "AimPart",
+			options = { "Head", "Torso" },
+			default = Settings.AimPart,
+			callback = function(part)
+				Settings.AimPart = part
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Visible Check",
+			flag = "VisibleCheck",
+			default = Settings.VisibleCheck,
+			callback = function(state)
+				Settings.VisibleCheck = state
+			end,
+		})
+		ranged:create_slider({
+			title = "Aim FOV",
+			flag = "AimFov",
+			min = 25,
+			max = 600,
+			default = Settings.AimFov,
+			round_number = true,
+			callback = function(pixels)
+				Settings.AimFov = pixels
+			end,
+		})
+		ranged:create_slider({
+			title = "Aimbot Smoothness",
+			flag = "AimSmoothness",
+			min = 0,
+			max = 95,
+			default = Settings.AimSmoothness,
+			round_number = true,
+			callback = function(amount)
+				Settings.AimSmoothness = math.clamp(amount, 0, 95)
+			end,
+		})
+		ranged:create_slider({
+			title = "Prediction %",
+			flag = "Prediction",
+			min = 0,
+			max = 150,
+			default = Settings.Prediction,
+			round_number = true,
+			callback = function(percent)
+				Settings.Prediction = percent
+			end,
+		})
+		ranged:create_slider({
+			title = "Hit Chance %",
+			flag = "HitChance",
+			min = 0,
+			max = 100,
+			default = Settings.HitChance,
+			round_number = true,
+			callback = function(percent)
+				Settings.HitChance = percent
+			end,
+		})
+		ranged:create_dropdown({
+			title = "Target Priority",
+			flag = "AimPriority",
+			options = { "Crosshair", "Lowest HP", "Closest" },
+			default = Settings.AimPriority,
+			callback = function(mode)
+				Settings.AimPriority = mode
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Humanized Aimbot",
+			flag = "AimHumanize",
+			default = Settings.AimHumanize,
+			callback = function(state)
+				Settings.AimHumanize = state
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Remote Backstop",
+			flag = "RemoteBackstop",
+			default = Settings.RemoteBackstop,
+			callback = function(state)
+				Settings.RemoteBackstop = state
+			end,
+		})
+		ranged:create_divider()
+		ranged:create_checkbox({
+			title = "Triggerbot",
+			flag = "Triggerbot",
+			default = Settings.Triggerbot,
+			callback = function(state)
+				Settings.Triggerbot = state
+				if not state then
+					releaseTrigger()
+				end
+			end,
+		})
+		ranged:create_slider({
+			title = "Trigger Reaction (ms)",
+			flag = "TriggerDelay",
+			min = 0,
+			max = 300,
+			default = Settings.TriggerDelay,
+			round_number = true,
 			callback = function(value)
-				Config[flag] = value
+				Settings.TriggerDelay = value
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Trigger Needs Crosshair",
+			flag = "TriggerCrosshair",
+			default = Settings.TriggerCrosshair,
+			callback = function(state)
+				Settings.TriggerCrosshair = state
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Check Limbs",
+			flag = "TriggerLimbs",
+			default = Settings.TriggerLimbs,
+			callback = function(state)
+				Settings.TriggerLimbs = state
+			end,
+		})
+		ranged:create_slider({
+			title = "Release Charge %",
+			flag = "ReleaseCharge",
+			min = 40,
+			max = 100,
+			default = Settings.ReleaseCharge,
+			round_number = true,
+			callback = function(percent)
+				Settings.ReleaseCharge = percent
+			end,
+		})
+		ranged:create_checkbox({
+			title = "Auto Release At Full Draw",
+			flag = "AutoRelease",
+			default = Settings.AutoRelease,
+			callback = function(state)
+				Settings.AutoRelease = state
 			end,
 		})
 	end
-	local function dropdown(module, title, flag, options)
-		module:create_dropdown({
-			title = title,
-			flag = flag,
-			options = options,
-			default = Config[flag],
-			callback = function(choice)
-				Config[flag] = choice
+	do
+		local melee = combatTab:create_module({
+			title = "Melee",
+			description = "Melee aura and auto swing",
+			section = "right",
+			flag = "MeleeModule",
+		})
+		melee:create_checkbox({
+			title = "Melee Aura",
+			flag = "MeleeAura",
+			default = Settings.MeleeAura,
+			callback = function(state)
+				Settings.MeleeAura = state
+				if not state then
+					op.meleeDirection = nil
+				end
+			end,
+		})
+		melee:create_slider({
+			title = "Extra Reach",
+			flag = "MeleeReach",
+			min = 0,
+			max = 4,
+			default = Settings.MeleeReach,
+			round_number = false,
+			callback = function(studs)
+				Settings.MeleeReach = math.clamp(studs, 0, 4)
+			end,
+		})
+		melee:create_checkbox({
+			title = "Auto Swing",
+			flag = "AutoSwing",
+			default = Settings.AutoSwing,
+			callback = function(state)
+				Settings.AutoSwing = state
+			end,
+		})
+		melee:create_checkbox({
+			title = "Facing Check",
+			flag = "AutoSwingFacing",
+			default = Settings.AutoSwingFacing,
+			callback = function(state)
+				Settings.AutoSwingFacing = state
+			end,
+		})
+		melee:create_slider({
+			title = "Min Distance",
+			flag = "AutoSwingMinDistance",
+			min = 0,
+			max = 3,
+			default = Settings.AutoSwingMinDistance,
+			round_number = false,
+			callback = function(value)
+				Settings.AutoSwingMinDistance = value
+			end,
+		})
+		melee:create_dropdown({
+			title = "Aura Priority",
+			flag = "AuraPriority",
+			options = { "Closest", "Lowest HP" },
+			default = Settings.AuraPriority,
+			callback = function(mode)
+				Settings.AuraPriority = mode
+			end,
+		})
+		melee:create_divider()
+		melee:create_checkbox({
+			title = "Hitbox Expander",
+			flag = "HitboxExpander",
+			default = Settings.HitboxExpander,
+			callback = function(state)
+				Settings.HitboxExpander = state
+			end,
+		})
+		melee:create_slider({
+			title = "Hitbox Size",
+			flag = "HitboxSize",
+			min = 3,
+			max = 10,
+			default = Settings.HitboxSize,
+			round_number = true,
+			callback = function(value)
+				Settings.HitboxSize = value
+			end,
+		})
+		melee:create_divider()
+		melee:create_checkbox({
+			title = "Teleport Kill",
+			flag = "TeleportKill",
+			default = Settings.TeleportKill,
+			callback = function(state)
+				Settings.TeleportKill = state
+			end,
+		})
+		melee:create_dropdown({
+			title = "Teleport Target",
+			flag = "TeleportTarget",
+			options = { "Nearest", "Lowest HP", "Aim Target" },
+			default = Settings.TeleportTarget,
+			callback = function(mode)
+				Settings.TeleportTarget = mode
+			end,
+		})
+		melee:create_slider({
+			title = "Teleport Offset",
+			flag = "TeleportOffset",
+			min = 1.5,
+			max = 6,
+			default = Settings.TeleportOffset,
+			round_number = false,
+			callback = function(value)
+				Settings.TeleportOffset = value
+			end,
+		})
+		melee:create_checkbox({
+			title = "Return After",
+			flag = "TeleportReturn",
+			default = Settings.TeleportReturn,
+			callback = function(state)
+				Settings.TeleportReturn = state
 			end,
 		})
 	end
-
-	local ranged = combatTab:create_module({
-		title = "Ranged",
-		description = "Silent aim, aimbot, and auto fire",
-		section = "left",
-		flag = "RangedModule",
-	})
-	checkbox(ranged, "Silent Aim", "SilentAim")
-	checkbox(ranged, "Camera Aimbot", "Aimbot")
-	dropdown(ranged, "Aimbot Key", "AimbotKey", { "Hold Right Mouse", "Always" })
-	dropdown(ranged, "Aim Part", "AimPart", { "Head", "Torso" })
-	checkbox(ranged, "Visible Check", "VisibleCheck")
-	slider(ranged, "Aim FOV", "AimFov", 25, 600)
-	slider(ranged, "Aimbot Smoothness", "AimSmoothness", 0, 95)
-	slider(ranged, "Prediction %", "Prediction", 0, 150)
-	checkbox(ranged, "Auto Prediction", "AutoPrediction")
-	slider(ranged, "Hit Chance %", "HitChance", 0, 100)
-	checkbox(ranged, "No Spread", "NoSpread")
-	dropdown(ranged, "Target Priority", "AimPriority", { "Crosshair", "Closest", "Lowest HP" })
-	checkbox(ranged, "Humanized Aimbot", "AimHumanize")
-	checkbox(ranged, "Remote Backstop", "RemoteBackstop")
-	ranged:create_divider({})
-	checkbox(ranged, "Auto Shoot", "Triggerbot")
-	slider(ranged, "Reaction (ms)", "TriggerDelay", 0, 180)
-	checkbox(ranged, "Check Limbs", "TriggerLimbs")
-	slider(ranged, "Release Charge %", "ReleaseCharge", 40, 100)
-	checkbox(ranged, "Auto Release At Full Draw", "AutoRelease")
-	checkbox(ranged, "Instant Full Charge", "FullCharge")
-
-	local melee = combatTab:create_module({
-		title = "Melee",
-		description = "Kill aura, reach, and teleport kill",
-		section = "right",
-		flag = "MeleeModule",
-	})
-	checkbox(melee, "Melee Aura", "MeleeAura")
-	slider(melee, "Extra Reach", "MeleeReach", 0, 4, false)
-	checkbox(melee, "Auto Swing", "AutoSwing")
-	checkbox(melee, "Facing Check", "AutoSwingFacing")
-	slider(melee, "Min Distance", "AutoSwingMinDistance", 0, 3, false)
-	dropdown(melee, "Aura Priority", "AuraPriority", { "Closest", "Lowest HP" })
-	melee:create_divider({})
-	checkbox(melee, "Hitbox Expander", "HitboxExpander")
-	slider(melee, "Hitbox Size", "HitboxSize", 3, 10)
-	melee:create_divider({})
-	checkbox(melee, "Teleport Kill", "TeleportKill")
-	dropdown(melee, "Teleport Target", "TeleportTarget", { "Nearest", "Lowest HP", "Aim Target" })
-	slider(melee, "Teleport Offset", "TeleportOffset", 1.5, 6, false)
-	checkbox(melee, "Return After", "TeleportReturn")
-
-	local block = defenseTab:create_module({
-		title = "Auto Block",
-		description = "Block incoming projectiles and swings",
-		section = "left",
-		flag = "BlockModule",
-	})
-	checkbox(block, "Auto Block", "AutoBlock")
-	slider(block, "Projectile Radius", "BlockRadius", 2, 8)
-	checkbox(block, "Face Threat", "BlockFaceThreat")
-
-	local parry = defenseTab:create_module({
-		title = "Auto Parry",
-		description = "Parry enemy swings and projectiles",
-		section = "left",
-		flag = "ParryModule",
-	})
-	checkbox(parry, "Auto Parry", "AutoParry")
-	slider(parry, "Parry Range", "ParryRange", 6, 24)
-	checkbox(parry, "Parry Projectiles", "ParryProjectiles")
-	checkbox(parry, "Ping Compensation", "ParryPingComp")
-
-	local healing = defenseTab:create_module({
-		title = "Healing",
-		description = "Heal when low",
-		section = "right",
-		flag = "HealingModule",
-	})
-	checkbox(healing, "Auto Heal", "AutoHeal")
-	slider(healing, "Heal Below HP %", "HealThreshold", 10, 90)
-
-	local movement = miscTab:create_module({
-		title = "Movement",
-		description = "Slide hop, bunny hop, and speed",
-		section = "left",
-		flag = "MovementModule",
-	})
-	checkbox(movement, "Auto Slide Hop", "SlideHop")
-	dropdown(movement, "Slide Hop Mode", "SlideHopMode", { "While Moving", "Always" })
-	slider(movement, "Hop Delay (frames)", "SlideHopDelay", 1, 30)
-	checkbox(movement, "Bunny Hop", "BunnyHop")
-	checkbox(movement, "No Slow", "NoSlow")
-	movement:create_divider({})
-	checkbox(movement, "Speed Boost", "SpeedBoost")
-	dropdown(movement, "Speed Boost Mode", "SpeedBoostMode", { "Always", "Melee Only", "Slide Hop Only" })
-	slider(movement, "Speed Boost %", "SpeedBoostAmount", 1, 40)
-
-	local cameraModule = miscTab:create_module({
-		title = "Camera",
-		description = "Recoil, shake, bob, and reload",
-		section = "right",
-		flag = "CameraModule",
-	})
-	checkbox(cameraModule, "No Recoil", "NoRecoil")
-	checkbox(cameraModule, "No Camera Shake", "NoShake")
-	cameraModule:create_checkbox({
-		title = "No View Bob",
-		flag = "NoViewBob",
-		default = Config.NoViewBob,
-		callback = function(state)
-			Config.NoViewBob = state
-			op.guard("viewBob", applyViewBob)
-		end,
-	})
-	checkbox(cameraModule, "Auto Reload", "AutoReload")
-
-	local match = miscTab:create_module({
-		title = "Match",
-		description = "Auto queue for a game",
-		section = "right",
-		flag = "MatchModule",
-	})
-	checkbox(match, "Auto Queue", "AutoQueue")
-
-	local scriptModule = miscTab:create_module({
-		title = "Script",
-		description = "Rejoin, server hop, and unload",
-		section = "right",
-		flag = "ScriptModule",
-	})
-	checkbox(scriptModule, "Auto Execute On Teleport", "AutoExecute")
-	scriptModule:create_button("Rejoin", function()
-		op.guard("rejoin", function()
-			if Config.AutoExecute then
-				queueLoader()
-			end
-			rejoin()
-		end)
-	end)
-	scriptModule:create_button("Server Hop", function()
-		op.guard("serverHop", function()
-			if Config.AutoExecute then
-				queueLoader()
-			end
-			serverHop()
-		end)
-	end)
-	scriptModule:create_button("Unload", function()
-		op.guard("unload", unload)
-	end)
-
-	local esp = visualsTab:create_module({
-		title = "ESP",
-		description = "See players through walls",
-		section = "left",
-		flag = "EspModule",
-	})
-	checkbox(esp, "Player ESP", "PlayerEsp")
-	checkbox(esp, "Health & Armor Bars", "HealthBars")
-	checkbox(esp, "Weapon & Distance", "EspInfo")
-	checkbox(esp, "Health Number", "EspHealthText")
-	checkbox(esp, "Player Tracers", "PlayerTracers")
-	checkbox(esp, "Player Chams", "PlayerChams")
-	checkbox(esp, "Skeleton ESP", "SkeletonEsp")
-	esp:create_divider({})
-	checkbox(esp, "Show Teammates", "EspTeammates")
-	checkbox(esp, "Show Lobby Players", "EspLobby")
-	checkbox(esp, "Bear Trap ESP", "TrapEsp")
-	slider(esp, "ESP Distance", "EspMaxDistance", 100, 1500)
-
-	local overlay = visualsTab:create_module({
-		title = "Overlay",
-		description = "On-screen helpers",
-		section = "right",
-		flag = "OverlayModule",
-	})
-	checkbox(overlay, "Show Aim FOV", "ShowFov")
-	checkbox(overlay, "Hit Marker", "HitMarker")
-
-	pcall(function()
-		window:create_configs_tab()
-	end)
+	do
+		local blocking = defenseTab:create_module({
+			title = "Auto Block",
+			description = "Raise sword, shield, or katana parry on incoming hits",
+			section = "left",
+			flag = "BlockModule",
+		})
+		blocking:create_checkbox({
+			title = "Auto Block",
+			flag = "AutoBlock",
+			default = Settings.AutoBlock,
+			callback = function(state)
+				Settings.AutoBlock = state
+				if not state then
+					op.threatUntil = 0
+					releaseBlock()
+				end
+			end,
+		})
+		blocking:create_slider({
+			title = "Projectile Radius",
+			flag = "BlockRadius",
+			min = 2,
+			max = 8,
+			default = Settings.BlockRadius,
+			round_number = true,
+			callback = function(studs)
+				Settings.BlockRadius = studs
+			end,
+		})
+		blocking:create_checkbox({
+			title = "Face Threat",
+			flag = "BlockFaceThreat",
+			default = Settings.BlockFaceThreat,
+			callback = function(state)
+				Settings.BlockFaceThreat = state
+			end,
+		})
+	end
+	do
+		local parry = defenseTab:create_module({
+			title = "Auto Parry",
+			description = "Katana parry on enemy wind-ups with ping compensation",
+			section = "left",
+			flag = "ParryModule",
+		})
+		parry:create_checkbox({
+			title = "Auto Parry",
+			flag = "AutoParry",
+			default = Settings.AutoParry,
+			callback = function(state)
+				Settings.AutoParry = state
+			end,
+		})
+		parry:create_slider({
+			title = "Parry Range",
+			flag = "ParryRange",
+			min = 6,
+			max = 24,
+			default = Settings.ParryRange,
+			round_number = true,
+			callback = function(value)
+				Settings.ParryRange = value
+			end,
+		})
+		parry:create_checkbox({
+			title = "Parry Projectiles",
+			flag = "ParryProjectiles",
+			default = Settings.ParryProjectiles,
+			callback = function(state)
+				Settings.ParryProjectiles = state
+			end,
+		})
+		parry:create_checkbox({
+			title = "Ping Compensation",
+			flag = "ParryPingComp",
+			default = Settings.ParryPingComp,
+			callback = function(state)
+				Settings.ParryPingComp = state
+			end,
+		})
+	end
+	do
+		local healing = defenseTab:create_module({
+			title = "Healing",
+			description = "Use bandages and herbs automatically",
+			section = "right",
+			flag = "HealingModule",
+		})
+		healing:create_checkbox({
+			title = "Auto Heal",
+			flag = "AutoHeal",
+			default = Settings.AutoHeal,
+			callback = function(state)
+				Settings.AutoHeal = state
+			end,
+		})
+		healing:create_slider({
+			title = "Heal Below HP %",
+			flag = "HealThreshold",
+			min = 10,
+			max = 90,
+			default = Settings.HealThreshold,
+			round_number = true,
+			callback = function(percent)
+				Settings.HealThreshold = percent
+			end,
+		})
+	end
+	do
+		local movement = miscTab:create_module({
+			title = "Movement",
+			description = "Slide hop and speed boost through game simulation",
+			section = "left",
+			flag = "MovementModule",
+		})
+		movement:create_checkbox({
+			title = "Auto Slide Hop",
+			flag = "SlideHop",
+			default = Settings.SlideHop,
+			callback = function(state)
+				Settings.SlideHop = state
+				if not state then
+					releaseSlideHop()
+				end
+			end,
+		})
+		movement:create_dropdown({
+			title = "Slide Hop Mode",
+			flag = "SlideHopMode",
+			options = { "While Moving", "Hold Space" },
+			default = Settings.SlideHopMode,
+			callback = function(mode)
+				Settings.SlideHopMode = mode
+			end,
+		})
+		movement:create_slider({
+			title = "Hop Delay (frames)",
+			flag = "SlideHopDelay",
+			min = 1,
+			max = 30,
+			default = Settings.SlideHopDelay,
+			round_number = true,
+			callback = function(frames)
+				Settings.SlideHopDelay = frames
+			end,
+		})
+		movement:create_checkbox({
+			title = "No Slow",
+			flag = "NoSlow",
+			default = Settings.NoSlow,
+			callback = function(state)
+				Settings.NoSlow = state
+			end,
+		})
+		movement:create_divider()
+		movement:create_checkbox({
+			title = "Speed Boost",
+			flag = "SpeedBoost",
+			default = Settings.SpeedBoost,
+			callback = function(state)
+				Settings.SpeedBoost = state
+			end,
+		})
+		movement:create_dropdown({
+			title = "Speed Boost Mode",
+			flag = "SpeedBoostMode",
+			options = { "Always", "Melee Only", "Slide Hop Only" },
+			default = Settings.SpeedBoostMode,
+			callback = function(mode)
+				Settings.SpeedBoostMode = mode
+			end,
+		})
+		movement:create_slider({
+			title = "Speed Boost %",
+			flag = "SpeedBoostAmount",
+			min = 1,
+			max = 40,
+			default = Settings.SpeedBoostAmount,
+			round_number = true,
+			callback = function(percent)
+				Settings.SpeedBoostAmount = math.clamp(percent, 1, 40)
+			end,
+		})
+	end
+	do
+		local cameraModule = miscTab:create_module({
+			title = "Camera",
+			description = "Recoil and shake removal",
+			section = "right",
+			flag = "CameraModule",
+		})
+		cameraModule:create_checkbox({
+			title = "No Recoil",
+			flag = "NoRecoil",
+			default = Settings.NoRecoil,
+			callback = function(state)
+				Settings.NoRecoil = state
+			end,
+		})
+		cameraModule:create_checkbox({
+			title = "Auto Reload",
+			flag = "AutoReload",
+			default = Settings.AutoReload,
+			callback = function(state)
+				Settings.AutoReload = state
+			end,
+		})
+		cameraModule:create_checkbox({
+			title = "No Camera Shake",
+			flag = "NoShake",
+			default = Settings.NoShake,
+			callback = function(state)
+				Settings.NoShake = state
+			end,
+		})
+	end
+	do
+		local match = miscTab:create_module({
+			title = "Match",
+			description = "Queue automation",
+			section = "right",
+			flag = "MatchModule",
+		})
+		match:create_checkbox({
+			title = "Auto Queue",
+			flag = "AutoQueue",
+			default = Settings.AutoQueue,
+			callback = function(state)
+				Settings.AutoQueue = state
+				nextAt.queue = 0
+			end,
+		})
+	end
+	do
+		local scriptSection = miscTab:create_module({
+			title = "Script",
+			description = "Unload script and clean up",
+			section = "right",
+			flag = "ScriptModule",
+		})
+		scriptSection:create_checkbox({
+			title = "Auto Execute On Teleport",
+			flag = "AutoExecute",
+			default = Settings.AutoExecute,
+			callback = function(state)
+				Settings.AutoExecute = state
+				if not state then
+					Shared.Queued = false
+				end
+			end,
+		})
+		scriptSection:create_button({
+			title = "Rejoin",
+			callback = function()
+				pcall(rejoin)
+			end,
+		})
+		scriptSection:create_button({
+			title = "Server Hop",
+			callback = function()
+				local ok, hopped = pcall(serverHop)
+				if not (ok and hopped) then
+					pcall(Library.SendNotification, { title = "Pivot", text = "No other server found", duration = 3 })
+				end
+			end,
+		})
+		scriptSection:create_button({
+			title = "Unload",
+			callback = function()
+				if getgenv().PivotUnload then
+					getgenv().PivotUnload()
+				end
+			end,
+		})
+	end
+	do
+		local espModule = visualsTab:create_module({
+			title = "ESP",
+			description = "Players, health, armor, and weapons",
+			section = "left",
+			flag = "EspModule",
+		})
+		espModule:create_checkbox({
+			title = "Player ESP",
+			flag = "PlayerEsp",
+			default = Settings.PlayerEsp,
+			callback = function(state)
+				Settings.PlayerEsp = state
+				refreshVisuals()
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Health & Armor Bars",
+			flag = "HealthBars",
+			default = Settings.HealthBars,
+			callback = function(state)
+				Settings.HealthBars = state
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Weapon & Distance",
+			flag = "EspInfo",
+			default = Settings.EspInfo,
+			callback = function(state)
+				Settings.EspInfo = state
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Health Number",
+			flag = "EspHealthText",
+			default = Settings.EspHealthText,
+			callback = function(state)
+				Settings.EspHealthText = state
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Player Tracers",
+			flag = "PlayerTracers",
+			default = Settings.PlayerTracers,
+			callback = function(state)
+				Settings.PlayerTracers = state
+				refreshVisuals()
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Player Chams",
+			flag = "PlayerChams",
+			default = Settings.PlayerChams,
+			callback = function(state)
+				Settings.PlayerChams = state
+				refreshVisuals()
+			end,
+		})
+		espModule:create_divider()
+		espModule:create_checkbox({
+			title = "Show Teammates",
+			flag = "EspTeammates",
+			default = Settings.EspTeammates,
+			callback = function(state)
+				Settings.EspTeammates = state
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Show Lobby Players",
+			flag = "EspLobby",
+			default = Settings.EspLobby,
+			callback = function(state)
+				Settings.EspLobby = state
+			end,
+		})
+		espModule:create_checkbox({
+			title = "Bear Trap ESP",
+			flag = "TrapEsp",
+			default = Settings.TrapEsp,
+			callback = function(state)
+				Settings.TrapEsp = state
+				refreshVisuals()
+			end,
+		})
+		espModule:create_slider({
+			title = "ESP Distance",
+			flag = "EspMaxDistance",
+			min = 100,
+			max = 1500,
+			default = Settings.EspMaxDistance,
+			round_number = true,
+			callback = function(distance)
+				Settings.EspMaxDistance = distance
+			end,
+		})
+	end
+	do
+		local overlay = visualsTab:create_module({
+			title = "Overlay",
+			description = "Aim FOV circle",
+			section = "right",
+			flag = "OverlayModule",
+		})
+		overlay:create_checkbox({
+			title = "Show Aim FOV",
+			flag = "ShowFov",
+			default = Settings.ShowFov,
+			callback = function(state)
+				Settings.ShowFov = state
+				refreshVisuals()
+			end,
+		})
+	end
+	window:create_configs_tab()
 end
-
-task.spawn(function()
-	op.guard("buildUI", buildUI)
-end)
-end)()
